@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTourStore } from '@/lib/tour-store';
 import { Bed, Bath, Maximize2, Eye, ArrowRight, Clock } from 'lucide-react';
 import type { BuildingConfig, ApartmentConfig } from '@/lib/tour-types';
@@ -32,6 +32,39 @@ const BEIGE = '#8E6849';
 export default function BuildingSelector() {
   const { config, setApartment } = useTourStore();
   const [hoveredApt, setHoveredApt] = useState<string | null>(null);
+
+  /* ── Modo debug (?debug=1): arrastrar el ojo para recolocarlo ── */
+  const debugEnabled =
+    typeof window !== 'undefined' && window.location.search.includes('debug=1');
+  const [overrides, setOverrides] = useState<Record<string, { x: number; y: number }>>({});
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!dragId) return;
+    const onMove = (e: MouseEvent) => {
+      const x = Math.max(0, Math.min(100, Math.round((e.clientX / window.innerWidth) * 1000) / 10));
+      const y = Math.max(0, Math.min(100, Math.round((e.clientY / window.innerHeight) * 1000) / 10));
+      setOverrides((prev) => ({ ...prev, [dragId]: { x, y } }));
+    };
+    const onUp = () => setDragId(null);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [dragId]);
+
+  const copyHotspot = useCallback((aptId: string, x: number, y: number) => {
+    try {
+      navigator.clipboard.writeText(`hotspotX: ${x}, hotspotY: ${y},`);
+      setCopied(aptId);
+      setTimeout(() => setCopied(null), 1600);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const buildings = config.buildings;
   if (!buildings.length) return null;
@@ -94,10 +127,37 @@ export default function BuildingSelector() {
               onHover={() => setHoveredApt(apt.id)}
               onLeave={() => setHoveredApt(null)}
               onClick={() => available && setApartment(apt)}
+              debugEnabled={debugEnabled}
+              override={overrides[apt.id]}
+              isDragging={dragId === apt.id}
+              onDragStart={() => setDragId(apt.id)}
+              onCopy={(x, y) => copyHotspot(apt.id, x, y)}
+              copied={copied === apt.id}
             />
           );
         })}
       </div>
+
+      {/* ── Hint de debug (solo ?debug=1) ── */}
+      {debugEnabled && (
+        <div
+          className="absolute z-[30] left-4 bottom-4 select-none"
+          style={{
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+            fontSize: 11,
+            color: '#5DD5F0',
+            background: 'rgba(0,0,0,0.8)',
+            border: '1px solid rgba(93,213,240,0.5)',
+            borderRadius: 8,
+            padding: '7px 11px',
+            lineHeight: 1.5,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+          }}
+        >
+          <b>DEBUG</b> · arrastra el <b>ojo</b> para recolocarlo · luego pulsa{' '}
+          <b>copiar</b> y pega <code>hotspotX/hotspotY</code> en tour.config.ts
+        </div>
+      )}
 
       <style>{`
         @keyframes selectorFadeIn {
@@ -114,6 +174,7 @@ export default function BuildingSelector() {
 // ═══════════════════════════════════════════════════════════════════
 function BuildingHotspot({
   apt, building, available, isHovered, onHover, onLeave, onClick,
+  debugEnabled = false, override, isDragging = false, onDragStart, onCopy, copied = false,
 }: {
   apt: ApartmentConfig;
   building: BuildingConfig;
@@ -122,11 +183,17 @@ function BuildingHotspot({
   onHover: () => void;
   onLeave: () => void;
   onClick: () => void;
+  debugEnabled?: boolean;
+  override?: { x: number; y: number };
+  isDragging?: boolean;
+  onDragStart?: () => void;
+  onCopy?: (x: number, y: number) => void;
+  copied?: boolean;
 }) {
   const floors = building.floors;
   const aptPerFloor = building.apartmentsPerFloor;
-  const baseX = apt.hotspotX ?? (aptPerFloor === 1 ? 50 : apt.position === 0 ? 38 : 62);
-  const baseY = apt.hotspotY ?? (65 - (apt.floor / (floors - 1 || 1)) * 35);
+  const baseX = override?.x ?? apt.hotspotX ?? (aptPerFloor === 1 ? 50 : apt.position === 0 ? 38 : 62);
+  const baseY = override?.y ?? apt.hotspotY ?? (65 - (apt.floor / (floors - 1 || 1)) * 35);
 
   // Decide si la card abre hacia la izquierda o derecha según posición horizontal
   const cardAlignRight = baseX > 55;
@@ -179,7 +246,7 @@ function BuildingHotspot({
             <button
               className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-semibold transition-all duration-200 cursor-pointer hover:brightness-110"
               style={{ background: `${BEIGE}18`, color: '#FFF9E9', border: `1px solid ${BEIGE}30` }}
-              onClick={onClick}
+              onClick={() => { if (!debugEnabled) onClick(); }}
             >
               Iniciar Recorrido
               <ArrowRight size={13} />
@@ -212,8 +279,19 @@ function BuildingHotspot({
       {/* ── Esfera principal ── */}
       <button
         className="relative z-10"
-        style={{ cursor: available ? 'pointer' : 'default' }}
-        onClick={onClick}
+        style={{
+          cursor: debugEnabled ? (isDragging ? 'grabbing' : 'grab') : available ? 'pointer' : 'default',
+        }}
+        onMouseDown={(e) => {
+          if (debugEnabled) {
+            e.preventDefault();
+            onDragStart?.();
+          }
+        }}
+        onClick={() => {
+          // En debug NO navegamos: el clic/arrastre solo recoloca el ojo.
+          if (!debugEnabled) onClick();
+        }}
         tabIndex={-1}
         aria-disabled={!available}
       >
@@ -281,6 +359,50 @@ function BuildingHotspot({
           </span>
         </div>
       </button>
+
+      {/* ── Lectura de coords + copiar (solo ?debug=1) ── */}
+      {debugEnabled && (
+        <div
+          className="absolute z-[30]"
+          style={{
+            left: 'calc(100% + 12px)',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+            fontSize: 11,
+            color: '#5DD5F0',
+            background: 'rgba(0,0,0,0.85)',
+            border: '1px solid rgba(93,213,240,0.5)',
+            borderRadius: 6,
+            padding: '4px 8px',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
+          }}
+        >
+          <span>
+            x:<b style={{ color: '#FFF' }}>{baseX}</b> y:<b style={{ color: '#FFF' }}>{baseY}</b>
+          </span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onCopy?.(baseX, baseY); }}
+            style={{
+              padding: '2px 8px',
+              fontSize: 10,
+              fontWeight: 700,
+              background: 'rgba(93,213,240,0.18)',
+              border: '1px solid rgba(93,213,240,0.5)',
+              borderRadius: 4,
+              color: '#5DD5F0',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            {copied ? '✓' : 'copiar'}
+          </button>
+        </div>
+      )}
 
       <style>{`
         @keyframes building-pulse {
