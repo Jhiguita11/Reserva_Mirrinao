@@ -1,21 +1,21 @@
 'use client';
 
 /* ─────────────────────────────────────────────────────────────────────
- *  DEBUG PANEL — herramienta integral para construir proyectos rapido
+ *  DEBUG PANEL — herramienta integral para construir proyectos rápido
  *
- *  Activacion:  ?debug=1  en la URL
+ *  Activación:  ?debug=1  en la URL
  *
- *  Funciones:
- *    • Crosshair fijo con yaw/pitch/hfov en vivo
- *    • Salto rapido entre apartamentos y escenas (no toca el sidebar)
- *    • Lista de hotspots actuales con highlight si tu mira esta cerca
- *    • "Agregar hotspot aqui"  → crea uno en RAM con yaw/pitch del crosshair
- *    • "Fijar variantButton aqui" → marca posicion del boton de variante
- *    • Validacion de conexiones (hotspots a escenas inexistentes, falta
- *      de reciprocidad A↔B, escenas huerfanas sin entrada)
- *    • Export de la escena actual como snippet TS listo para pegar
- *    • Export del floor plan completo
- *    • Atajo de teclado: D para colapsar/expandir, S para escena rapida
+ *  Diseño: panel flotante con SECCIONES DESPLEGABLES (acordeón). Arriba,
+ *  siempre visibles: salto de apartamento/escena y las coordenadas en vivo
+ *  del crosshair. Debajo, cada herramienta en su propia sección colapsable:
+ *    • 📍 Hotspots   — listar/añadir hotspots, "go" para apuntar
+ *    • 🎚️ Variantes  — ver variantes y fijar el botón de variante
+ *    • 🎬 Reproducción — autorar playbackAnimations (velocidad, captura, preview)
+ *    • 🗺️ Floor plan — listar rooms del plano
+ *    • 📤 Exportar   — snippets TS de la escena / floor plan
+ *    • ✅ Validación  — hotspots rotos, sin reciprocidad, escenas huérfanas
+ *
+ *  Atajos: D colapsa/expande todo el panel.
  *  ───────────────────────────────────────────────────────────────── */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -42,8 +42,6 @@ interface DebugPanelProps {
   viewerHandle: React.RefObject<PanoHandle | null>;
 }
 
-type Tab = 'hotspots' | 'variants' | 'plan' | 'playback' | 'export' | 'check';
-
 interface DraftHotspot {
   id: string;
   label: string;
@@ -53,12 +51,147 @@ interface DraftHotspot {
   targetSceneId?: string;
 }
 
+/* ── Tokens de estilo compartidos ──────────────────────────────────── */
+const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+const CYAN = '#5DD5F0';
+const CREAM = '#FFF9E9';
+const CARAMEL = '#8E6849';
+
+const inputStyle: React.CSSProperties = {
+  background: 'rgba(0,0,0,0.4)',
+  border: '1px solid rgba(142,104,73,0.25)',
+  borderRadius: 4,
+  color: CREAM,
+  padding: '3px 6px',
+  fontSize: 10,
+  fontFamily: MONO,
+};
+
+type BtnTone = 'cyan' | 'ghost' | 'green' | 'warn' | 'danger';
+function btn(tone: BtnTone, extra?: React.CSSProperties): React.CSSProperties {
+  const tones: Record<BtnTone, { bg: string; bd: string; fg: string }> = {
+    cyan: { bg: 'rgba(93,213,240,0.16)', bd: 'rgba(93,213,240,0.5)', fg: CYAN },
+    ghost: { bg: 'rgba(255,255,255,0.05)', bd: 'rgba(142,104,73,0.3)', fg: CREAM },
+    green: { bg: 'rgba(80,200,120,0.16)', bd: 'rgba(80,200,120,0.5)', fg: '#80E090' },
+    warn: { bg: 'rgba(255,180,80,0.14)', bd: 'rgba(255,180,80,0.45)', fg: '#FFC080' },
+    danger: { bg: 'rgba(255,80,80,0.14)', bd: 'rgba(255,80,80,0.45)', fg: '#FF8888' },
+  };
+  const t = tones[tone];
+  return {
+    padding: '6px 9px',
+    fontSize: 10,
+    fontWeight: 700,
+    background: t.bg,
+    border: `1px solid ${t.bd}`,
+    borderRadius: 5,
+    color: t.fg,
+    cursor: 'pointer',
+    fontFamily: MONO,
+    ...extra,
+  };
+}
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 9,
+  opacity: 0.5,
+  letterSpacing: 1,
+  textTransform: 'uppercase',
+  marginBottom: 5,
+};
+
+/* ── Sección desplegable (acordeón) ───────────────────────────────── */
+function Section({
+  icon,
+  title,
+  badge,
+  badgeTone = 'cyan',
+  open,
+  onToggle,
+  hint,
+  children,
+}: {
+  icon: string;
+  title: string;
+  badge?: number | string;
+  badgeTone?: 'cyan' | 'green' | 'red';
+  open: boolean;
+  onToggle: () => void;
+  hint?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const badgeColors = {
+    cyan: { bg: 'rgba(93,213,240,0.18)', fg: CYAN },
+    green: { bg: 'rgba(80,200,120,0.2)', fg: '#80E090' },
+    red: { bg: 'rgba(255,80,80,0.2)', fg: '#FF8888' },
+  }[badgeTone];
+  return (
+    <div style={{ borderTop: '1px solid rgba(142,104,73,0.14)' }}>
+      <button
+        onClick={onToggle}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 9,
+          width: '100%',
+          padding: '9px 11px',
+          background: open ? 'rgba(93,213,240,0.06)' : 'transparent',
+          border: 'none',
+          color: CREAM,
+          cursor: 'pointer',
+          fontFamily: MONO,
+          textAlign: 'left',
+        }}
+      >
+        <span
+          style={{
+            display: 'inline-block',
+            width: 10,
+            fontSize: 9,
+            color: CYAN,
+            transform: open ? 'rotate(90deg)' : 'none',
+            transition: 'transform 0.15s ease',
+          }}
+        >
+          ▶
+        </span>
+        <span style={{ fontSize: 14, lineHeight: 1 }}>{icon}</span>
+        <span style={{ flex: 1, fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' }}>
+          {title}
+        </span>
+        {badge !== undefined && badge !== '' && (
+          <span
+            style={{
+              fontSize: 9,
+              fontWeight: 700,
+              minWidth: 18,
+              textAlign: 'center',
+              padding: '1px 6px',
+              borderRadius: 10,
+              background: badgeColors.bg,
+              color: badgeColors.fg,
+            }}
+          >
+            {badge}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div style={{ padding: '0 11px 12px' }}>
+          {hint && (
+            <div style={{ fontSize: 9.5, opacity: 0.55, lineHeight: 1.55, marginBottom: 9 }}>{hint}</div>
+          )}
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
   const debugEnabled =
     typeof window !== 'undefined' && window.location.search.includes('debug=1');
 
   const selectedApartment = useTourStore((s) => s.selectedApartment);
-  const setApartment = useTourStore((s) => s.setApartment);
   const setApartmentAtScene = useTourStore((s) => s.setApartmentAtScene);
   const currentSceneId = useTourStore((s) => s.currentSceneId);
   const setCurrentScene = useTourStore((s) => s.setCurrentScene);
@@ -71,6 +204,8 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
   const currentScene: SceneConfig | undefined = selectedApartment?.scenes.find(
     (s) => s.id === currentSceneId,
   );
+  const sceneList = selectedApartment?.scenes ?? [];
+  const sceneIdx = sceneList.findIndex((s) => s.id === currentSceneId);
 
   /* ── Live coords del viewer ─────────────────────────────────── */
   const [coords, setCoords] = useState<{ yaw: number; pitch: number; hfov: number } | null>(null);
@@ -95,8 +230,18 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
 
   /* ── State del panel ────────────────────────────────────────── */
   const [collapsed, setCollapsed] = useState(false);
-  const [tab, setTab] = useState<Tab>('hotspots');
+  const [openSections, setOpenSections] = useState<Set<string>>(() => new Set(['hotspots']));
   const [copied, setCopied] = useState<string | null>(null);
+
+  const toggleSection = useCallback((id: string) => {
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  const ALL_SECTIONS = ['hotspots', 'variants', 'playback', 'plan', 'export', 'check'];
 
   // Drafts en memoria — el usuario los agrega aqui, luego los exporta para pegar en config
   const [drafts, setDrafts] = useState<DraftHotspot[]>([]);
@@ -112,8 +257,7 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
   const [previewing, setPreviewing] = useState(false);
 
   // Ajustes de velocidad/HFOV del modo reproducción (afectan la preview y se
-  // exportan como bloque `playback` para pegar en tour.config.ts). Por defecto
-  // toman lo que ya haya en config.playback, o los valores base.
+  // exportan como bloque `playback` para pegar en tour.config.ts).
   const [pbSettings, setPbSettings] = useState(() => ({
     panSpeed: config.playback?.panSpeed ?? PAN_SPEED,
     transitionSpeed: config.playback?.transitionSpeed ?? TRANSITION_SPEED,
@@ -135,7 +279,6 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
   useEffect(() => {
     if (!debugEnabled) return;
     const onKey = (e: KeyboardEvent) => {
-      // Solo si el foco no esta en un input/textarea
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
         return;
@@ -158,7 +301,16 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
     }
   }, []);
 
-  /* ── Acciones ───────────────────────────────────────────────── */
+  const goScene = useCallback(
+    (delta: number) => {
+      if (!sceneList.length) return;
+      const n = (sceneIdx + delta + sceneList.length) % sceneList.length;
+      setCurrentScene(sceneList[n].id);
+    },
+    [sceneList, sceneIdx, setCurrentScene],
+  );
+
+  /* ── Acciones hotspots ──────────────────────────────────────── */
   const addDraftHotspot = useCallback(() => {
     if (!coords) return;
     const idx = drafts.length + 1;
@@ -191,13 +343,10 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
   /* ── Playback: captura de keyframes ─────────────────────────── */
   const pbAnims = playbackDrafts[currentSceneId] ?? [];
 
-  // Marca la posición actual del crosshair como INICIO (from) del próximo tramo.
   const markFrom = useCallback(() => {
     if (coords) setPendingFrom({ pitch: coords.pitch, yaw: coords.yaw });
   }, [coords]);
 
-  // Agrega un tramo from→to: el from es el marcado (o, si no hay, una toma
-  // estática mirando aquí). El to es la posición actual del crosshair.
   const addSegment = useCallback(() => {
     if (!coords) return;
     const to = { pitch: coords.pitch, yaw: coords.yaw };
@@ -209,7 +358,6 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
     setPendingFrom(null);
   }, [coords, pendingFrom, currentSceneId]);
 
-  // Toma estática: mira hacia aquí y se mantiene (from == to).
   const addStaticHold = useCallback(() => {
     if (!coords) return;
     const p = { pitch: coords.pitch, yaw: coords.yaw };
@@ -219,9 +367,6 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
     }));
   }, [coords, currentSceneId]);
 
-  // Genera el recorrido "hacia las salidas": una toma estática mirando cada
-  // hotspot de la escena, ordenadas por yaw para un barrido natural. Las
-  // transiciones entre tomas las hace el motor de reproducción.
   const genFromExits = useCallback(() => {
     if (!currentScene) return;
     const hs = currentScene.hotspots ?? [];
@@ -247,9 +392,6 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
     setPendingFrom(null);
   }, [currentSceneId]);
 
-  // Previsualiza el recorrido de la escena actual usando lookAt (sin tocar el
-  // motor global). Replica la semántica: fija el from, panea al to, transiciona
-  // al from del siguiente, etc.
   const previewPlayback = useCallback(async () => {
     const v = viewerHandle.current;
     const anims = playbackDrafts[currentSceneId] ?? [];
@@ -298,7 +440,6 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
     return `// ${currentScene?.name ?? currentSceneId}\n      playbackAnimations: [\n${lines}\n      ],`;
   }, [playbackDrafts, currentSceneId, currentScene]);
 
-  // Bloque `playback` (velocidades/HFOV) para pegar en la raíz de tour.config.ts.
   const exportPlaybackSettings = useCallback(() => {
     const { panSpeed, transitionSpeed, staticHoldMs, hfov } = pbSettings;
     return `  playback: { panSpeed: ${panSpeed}, transitionSpeed: ${transitionSpeed}, staticHoldMs: ${staticHoldMs}, hfov: ${hfov} },`;
@@ -327,7 +468,6 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
     const sceneIds = new Set(selectedApartment.scenes.map((s) => s.id));
     const issues: { kind: 'broken' | 'missing-reciprocal' | 'orphan'; msg: string }[] = [];
 
-    // Hotspots que apuntan a escenas inexistentes
     selectedApartment.scenes.forEach((s) => {
       s.hotspots.forEach((h) => {
         if (h.type === 'scene' && h.targetSceneId && !sceneIds.has(h.targetSceneId)) {
@@ -339,7 +479,6 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
       });
     });
 
-    // Reciprocidad: si A tiene hotspot a B, ¿B tiene hotspot a A?
     selectedApartment.scenes.forEach((s) => {
       s.hotspots.forEach((h) => {
         if (h.type !== 'scene' || !h.targetSceneId) return;
@@ -357,7 +496,6 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
       });
     });
 
-    // Escenas huerfanas: nadie llega a ellas (excepto la primera)
     const firstSceneId = selectedApartment.scenes[0]?.id;
     selectedApartment.scenes.forEach((s) => {
       if (s.id === firstSceneId) return;
@@ -379,7 +517,7 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
   /* ── Snippet exporters ─────────────────────────────────────── */
   const exportSceneSnippet = useCallback(() => {
     if (!currentScene) return '';
-    const allHs: { pitch: number; yaw: number; label: string; targetSceneId?: string; type: string; id: string }[] = [
+    const allHs = [
       ...currentScene.hotspots.map((h) => ({
         id: h.id, pitch: h.pitch, yaw: h.yaw, label: h.label,
         targetSceneId: h.targetSceneId, type: h.type,
@@ -450,81 +588,21 @@ ${lines.join('\n')}
       <div
         aria-hidden
         style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 199,
-          pointerEvents: 'none',
-          width: 80,
-          height: 80,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          zIndex: 199, pointerEvents: 'none', width: 80, height: 80,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
       >
+        <div style={{ position: 'absolute', inset: 0, border: `2px solid ${CYAN}`, borderRadius: '50%', boxShadow: '0 0 12px rgba(93,213,240,0.6), inset 0 0 8px rgba(93,213,240,0.3)', opacity: 0.85 }} />
+        <div style={{ position: 'absolute', width: 36, height: 36, border: '1px solid rgba(93,213,240,0.6)', borderRadius: '50%' }} />
+        <div style={{ position: 'absolute', width: 80, height: 1, background: 'linear-gradient(to right, transparent 0%, rgba(93,213,240,0.9) 30%, rgba(93,213,240,0.9) 70%, transparent 100%)' }} />
+        <div style={{ position: 'absolute', width: 1, height: 80, background: 'linear-gradient(to bottom, transparent 0%, rgba(93,213,240,0.9) 30%, rgba(93,213,240,0.9) 70%, transparent 100%)' }} />
+        <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#FFFFFF', boxShadow: '0 0 6px #5DD5F0, 0 0 2px #FFF' }} />
         <div
           style={{
-            position: 'absolute',
-            inset: 0,
-            border: '2px solid #5DD5F0',
-            borderRadius: '50%',
-            boxShadow:
-              '0 0 12px rgba(93,213,240,0.6), inset 0 0 8px rgba(93,213,240,0.3)',
-            opacity: 0.85,
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            width: 36,
-            height: 36,
-            border: '1px solid rgba(93,213,240,0.6)',
-            borderRadius: '50%',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            width: 80,
-            height: 1,
-            background:
-              'linear-gradient(to right, transparent 0%, rgba(93,213,240,0.9) 30%, rgba(93,213,240,0.9) 70%, transparent 100%)',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            width: 1,
-            height: 80,
-            background:
-              'linear-gradient(to bottom, transparent 0%, rgba(93,213,240,0.9) 30%, rgba(93,213,240,0.9) 70%, transparent 100%)',
-          }}
-        />
-        <div
-          style={{
-            width: 5,
-            height: 5,
-            borderRadius: '50%',
-            background: '#FFFFFF',
-            boxShadow: '0 0 6px #5DD5F0, 0 0 2px #FFF',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            top: '100%',
-            marginTop: 12,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'rgba(0,0,0,0.85)',
-            border: '1px solid rgba(93,213,240,0.5)',
-            borderRadius: 6,
-            padding: '4px 10px',
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-            fontSize: 12,
-            color: '#5DD5F0',
-            whiteSpace: 'nowrap',
+            position: 'absolute', top: '100%', marginTop: 12, left: '50%', transform: 'translateX(-50%)',
+            background: 'rgba(0,0,0,0.85)', border: `1px solid rgba(93,213,240,0.5)`, borderRadius: 6,
+            padding: '4px 10px', fontFamily: MONO, fontSize: 12, color: CYAN, whiteSpace: 'nowrap',
             boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
           }}
         >
@@ -539,945 +617,409 @@ ${lines.join('\n')}
       {/* PANEL principal */}
       <div
         style={{
-          position: 'absolute',
-          top: 70,
-          left: 12,
-          zIndex: 200,
-          background: 'rgba(0,0,0,0.9)',
-          border: '1px solid rgba(142, 104, 73,0.35)',
-          borderRadius: 10,
-          minWidth: collapsed ? 200 : 360,
-          maxWidth: 420,
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-          fontSize: 12,
-          color: '#FFF9E9',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
-          overflow: 'hidden',
+          position: 'absolute', top: 64, left: 12, zIndex: 200,
+          background: 'rgba(8,8,10,0.92)', border: `1px solid rgba(142,104,73,0.4)`, borderRadius: 12,
+          width: collapsed ? 'auto' : 366, maxWidth: 420,
+          fontFamily: MONO, fontSize: 12, color: CREAM,
+          backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.7)', overflow: 'hidden',
         }}
       >
-        {/* Header con escena selector + collapse */}
+        {/* ── Barra de título ── */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '8px 10px',
-            borderBottom: collapsed ? 'none' : '1px solid rgba(142, 104, 73,0.18)',
+            display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px',
+            background: 'linear-gradient(90deg, rgba(93,213,240,0.10), transparent)',
+            borderBottom: collapsed ? 'none' : '1px solid rgba(142,104,73,0.2)',
           }}
         >
           <button
             onClick={() => setCollapsed((c) => !c)}
-            title="Colapsar / expandir (tecla D)"
-            style={{
-              padding: '2px 8px',
-              fontSize: 11,
-              fontWeight: 700,
-              background: 'rgba(93,213,240,0.18)',
-              border: '1px solid rgba(93,213,240,0.5)',
-              borderRadius: 4,
-              color: '#5DD5F0',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
+            title="Colapsar / expandir todo (tecla D)"
+            style={btn('cyan', { padding: '3px 9px', fontSize: 11, letterSpacing: 0.5 })}
           >
             {collapsed ? '▶' : '▼'} DEBUG
           </button>
-
           {!collapsed && (
             <>
-              {/* Apartamento selector */}
-              <select
-                value={selectedApartment?.id ?? ''}
-                onChange={(e) => {
-                  const apt = allApartments.find((a) => a.id === e.target.value);
-                  if (apt) setApartmentAtScene(apt, apt.scenes[0]?.id ?? '');
-                }}
-                title="Saltar a otro apartamento"
-                style={{
-                  flex: 0,
-                  background: 'rgba(255,255,255,0.05)',
-                  color: '#FFF9E9',
-                  border: '1px solid rgba(142, 104, 73,0.25)',
-                  borderRadius: 4,
-                  padding: '3px 4px',
-                  fontSize: 10,
-                  fontFamily: 'inherit',
-                  cursor: 'pointer',
-                }}
+              <span style={{ flex: 1, fontSize: 10, opacity: 0.5 }}>
+                {sceneList.length ? `escena ${sceneIdx + 1}/${sceneList.length}` : ''}
+              </span>
+              <button
+                onClick={() => setOpenSections(new Set(ALL_SECTIONS))}
+                title="Expandir todas las secciones"
+                style={btn('ghost', { padding: '3px 7px', fontSize: 13, lineHeight: 1 })}
               >
-                {allApartments.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-
-              {/* Escena selector */}
-              <select
-                value={currentSceneId}
-                onChange={(e) => setCurrentScene(e.target.value)}
-                title="Saltar a otra escena"
-                style={{
-                  flex: 1,
-                  background: 'rgba(255,255,255,0.05)',
-                  color: '#FFF9E9',
-                  border: '1px solid rgba(142, 104, 73,0.25)',
-                  borderRadius: 4,
-                  padding: '3px 4px',
-                  fontSize: 10,
-                  fontFamily: 'inherit',
-                  cursor: 'pointer',
-                }}
+                ⊕
+              </button>
+              <button
+                onClick={() => setOpenSections(new Set())}
+                title="Colapsar todas las secciones"
+                style={btn('ghost', { padding: '3px 7px', fontSize: 13, lineHeight: 1 })}
               >
-                {(selectedApartment?.scenes ?? []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+                ⊖
+              </button>
             </>
           )}
         </div>
 
         {!collapsed && (
           <>
-            {/* Tabs */}
-            <div
-              style={{
-                display: 'flex',
-                borderBottom: '1px solid rgba(142, 104, 73,0.18)',
-                background: 'rgba(0,0,0,0.3)',
-              }}
-            >
-              {[
-                { id: 'hotspots' as Tab, label: 'Hotspots', count: (currentScene?.hotspots.length ?? 0) + drafts.length },
-                { id: 'variants' as Tab, label: 'Variante', count: currentScene?.variants?.length ?? 0 },
-                { id: 'plan' as Tab, label: 'Floor', count: selectedApartment?.floorPlan?.rooms?.length ?? 0 },
-                { id: 'playback' as Tab, label: 'Playback', count: pbAnims.length },
-                { id: 'export' as Tab, label: 'Export' },
-                { id: 'check' as Tab, label: 'Check', count: validation?.issues.length ?? 0 },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  style={{
-                    flex: 1,
-                    padding: '6px 4px',
-                    fontSize: 10,
-                    fontWeight: tab === t.id ? 700 : 500,
-                    border: 'none',
-                    background: tab === t.id ? 'rgba(142, 104, 73,0.1)' : 'transparent',
-                    color: tab === t.id ? '#8E6849' : 'rgba(142, 104, 73,0.55)',
-                    cursor: 'pointer',
-                    borderBottom: tab === t.id ? '2px solid #5DD5F0' : '2px solid transparent',
-                    fontFamily: 'inherit',
-                    letterSpacing: 0.5,
-                    textTransform: 'uppercase',
+            {/* ── Salto rápido (siempre visible) ── */}
+            <div style={{ padding: '9px 11px', borderBottom: '1px solid rgba(142,104,73,0.2)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 9, opacity: 0.5, width: 38 }}>APTO</span>
+                <select
+                  value={selectedApartment?.id ?? ''}
+                  onChange={(e) => {
+                    const apt = allApartments.find((a) => a.id === e.target.value);
+                    if (apt) setApartmentAtScene(apt, apt.scenes[0]?.id ?? '');
                   }}
+                  title="Saltar a otro apartamento"
+                  style={{ ...inputStyle, flex: 1, cursor: 'pointer' }}
                 >
-                  {t.label}
-                  {t.count !== undefined && (
-                    <span style={{ marginLeft: 4, opacity: 0.7, fontSize: 9 }}>({t.count})</span>
-                  )}
-                </button>
-              ))}
+                  {allApartments.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 9, opacity: 0.5, width: 38 }}>ESCENA</span>
+                <button onClick={() => goScene(-1)} title="Escena anterior" style={btn('ghost', { padding: '3px 8px' })}>‹</button>
+                <select
+                  value={currentSceneId}
+                  onChange={(e) => setCurrentScene(e.target.value)}
+                  title="Saltar a otra escena"
+                  style={{ ...inputStyle, flex: 1, cursor: 'pointer' }}
+                >
+                  {sceneList.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                <button onClick={() => goScene(1)} title="Escena siguiente" style={btn('ghost', { padding: '3px 8px' })}>›</button>
+              </div>
             </div>
 
-            {/* Live coords resumen */}
+            {/* ── Coordenadas en vivo (siempre visible) ── */}
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 10px',
-                borderBottom: '1px solid rgba(142, 104, 73,0.18)',
-                background: 'rgba(93,213,240,0.04)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 11px', borderBottom: '1px solid rgba(142,104,73,0.2)',
+                background: 'rgba(93,213,240,0.05)',
               }}
             >
               <div style={{ fontSize: 11 }}>
-                <span style={{ opacity: 0.55 }}>yaw </span>
+                <span style={{ opacity: 0.5 }}>yaw </span>
                 <b style={{ fontSize: 13 }}>{coords.yaw}</b>
                 <span style={{ opacity: 0.3, margin: '0 6px' }}>·</span>
-                <span style={{ opacity: 0.55 }}>pitch </span>
+                <span style={{ opacity: 0.5 }}>pitch </span>
                 <b style={{ fontSize: 13 }}>{coords.pitch}</b>
                 <span style={{ opacity: 0.3, margin: '0 6px' }}>·</span>
-                <span style={{ opacity: 0.55 }}>hfov </span>
+                <span style={{ opacity: 0.5 }}>hfov </span>
                 <span style={{ opacity: 0.85 }}>{coords.hfov}</span>
               </div>
               <button
                 onClick={() => copy(`pitch: ${coords.pitch}, yaw: ${coords.yaw}`, 'pair')}
                 title="Copiar pitch/yaw del crosshair"
-                style={{
-                  padding: '3px 9px',
-                  fontSize: 10,
-                  background: 'rgba(93,213,240,0.18)',
-                  border: '1px solid rgba(93,213,240,0.5)',
-                  borderRadius: 4,
-                  color: '#5DD5F0',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  fontWeight: 700,
-                }}
+                style={btn('cyan', { padding: '3px 9px' })}
               >
                 {copied === 'pair' ? '✓' : 'copy p/y'}
               </button>
             </div>
 
-            {/* Tab content */}
-            <div style={{ maxHeight: 380, overflowY: 'auto', padding: '8px 10px' }}>
-              {tab === 'hotspots' && (
-                <>
-                  {/* Boton agregar */}
-                  <button
-                    onClick={addDraftHotspot}
-                    style={{
-                      width: '100%',
-                      padding: '6px 10px',
-                      fontSize: 11,
-                      background: 'rgba(93,213,240,0.15)',
-                      border: '1px dashed rgba(93,213,240,0.5)',
-                      borderRadius: 5,
-                      color: '#5DD5F0',
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      fontWeight: 700,
-                      marginBottom: 8,
-                    }}
-                  >
-                    + Agregar hotspot en el crosshair
-                  </button>
+            {/* ── Secciones desplegables ── */}
+            <div style={{ maxHeight: '64vh', overflowY: 'auto' }}>
+              {/* 📍 HOTSPOTS */}
+              <Section
+                icon="📍"
+                title="Hotspots"
+                badge={(currentScene?.hotspots.length ?? 0) + drafts.length}
+                open={openSections.has('hotspots')}
+                onToggle={() => toggleSection('hotspots')}
+                hint="Apunta el crosshair (arrastra la escena) hacia una puerta y agrega el hotspot. Luego expórtalo en la sección Exportar."
+              >
+                <button onClick={addDraftHotspot} style={btn('cyan', { width: '100%', border: `1px dashed rgba(93,213,240,0.5)`, marginBottom: 8 })}>
+                  + Agregar hotspot en el crosshair
+                </button>
 
-                  {/* Drafts en memoria */}
-                  {drafts.length > 0 && (
-                    <div style={{ marginBottom: 10 }}>
-                      <div
-                        style={{
-                          fontSize: 9,
-                          opacity: 0.55,
-                          letterSpacing: 1,
-                          marginBottom: 4,
-                        }}
-                      >
-                        NUEVOS DRAFTS ({drafts.length})
-                      </div>
-                      {drafts.map((d) => (
-                        <div
-                          key={d.id}
-                          style={{
-                            background: 'rgba(93,213,240,0.08)',
-                            border: '1px solid rgba(93,213,240,0.3)',
-                            borderRadius: 4,
-                            padding: 6,
-                            marginBottom: 4,
-                            fontSize: 10,
-                          }}
-                        >
-                          <div style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
-                            <input
-                              value={d.label}
-                              onChange={(e) => updateDraft(d.id, { label: e.target.value })}
-                              placeholder="Label"
-                              style={{
-                                flex: 1,
-                                background: 'rgba(0,0,0,0.4)',
-                                border: '1px solid rgba(142, 104, 73,0.2)',
-                                borderRadius: 3,
-                                color: '#FFF9E9',
-                                padding: '2px 5px',
-                                fontSize: 10,
-                                fontFamily: 'inherit',
-                              }}
-                            />
-                            <button
-                              onClick={() => removeDraft(d.id)}
-                              title="Eliminar draft"
-                              style={{
-                                background: 'rgba(255,80,80,0.15)',
-                                border: '1px solid rgba(255,80,80,0.4)',
-                                borderRadius: 3,
-                                color: '#FF8888',
-                                padding: '2px 6px',
-                                fontSize: 10,
-                                cursor: 'pointer',
-                                fontFamily: 'inherit',
-                              }}
-                            >
-                              ×
-                            </button>
-                          </div>
-                          <select
-                            value={d.targetSceneId ?? ''}
-                            onChange={(e) =>
-                              updateDraft(d.id, { targetSceneId: e.target.value })
-                            }
-                            style={{
-                              width: '100%',
-                              background: 'rgba(0,0,0,0.4)',
-                              border: '1px solid rgba(142, 104, 73,0.2)',
-                              borderRadius: 3,
-                              color: '#FFF9E9',
-                              padding: '2px 5px',
-                              fontSize: 10,
-                              fontFamily: 'inherit',
-                              marginBottom: 3,
-                            }}
-                          >
-                            <option value="">-- target scene --</option>
-                            {(selectedApartment?.scenes ?? []).map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.name}
-                              </option>
-                            ))}
-                          </select>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.7 }}>
-                            <span>pitch: {d.pitch}</span>
-                            <span>yaw: {d.yaw}</span>
-                          </div>
+                {drafts.length > 0 && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={labelStyle}>Nuevos drafts ({drafts.length})</div>
+                    {drafts.map((d) => (
+                      <div key={d.id} style={{ background: 'rgba(93,213,240,0.08)', border: '1px solid rgba(93,213,240,0.3)', borderRadius: 5, padding: 6, marginBottom: 4 }}>
+                        <div style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
+                          <input value={d.label} onChange={(e) => updateDraft(d.id, { label: e.target.value })} placeholder="Label" style={{ ...inputStyle, flex: 1 }} />
+                          <button onClick={() => removeDraft(d.id)} title="Eliminar draft" style={btn('danger', { padding: '2px 7px' })}>×</button>
                         </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Hotspots existentes */}
-                  {currentScene?.hotspots && currentScene.hotspots.length > 0 && (
-                    <>
-                      <div
-                        style={{
-                          fontSize: 9,
-                          opacity: 0.55,
-                          letterSpacing: 1,
-                          marginBottom: 4,
-                        }}
-                      >
-                        EN CONFIG ({currentScene.hotspots.length})
-                      </div>
-                      {currentScene.hotspots.map((h) => {
-                        const dYaw = Math.round((coords.yaw - (h.yaw ?? 0)) * 10) / 10;
-                        const aligned = Math.abs(dYaw) < 3;
-                        return (
-                          <div
-                            key={h.id}
-                            style={{
-                              background: aligned
-                                ? 'rgba(93,213,240,0.12)'
-                                : 'rgba(255,255,255,0.04)',
-                              border: aligned
-                                ? '1px solid rgba(93,213,240,0.4)'
-                                : '1px solid transparent',
-                              borderRadius: 4,
-                              padding: '5px 7px',
-                              marginBottom: 3,
-                              fontSize: 10,
-                              display: 'grid',
-                              gridTemplateColumns: '1fr auto auto auto',
-                              gap: 6,
-                              alignItems: 'center',
-                            }}
-                          >
-                            <span
-                              style={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                fontWeight: 600,
-                              }}
-                            >
-                              {h.label}
-                            </span>
-                            <span style={{ opacity: 0.7, fontSize: 9 }}>
-                              p:{h.pitch} y:{h.yaw}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: 9,
-                                color: aligned ? '#5DD5F0' : 'rgba(142, 104, 73,0.45)',
-                                minWidth: 32,
-                                textAlign: 'right',
-                              }}
-                            >
-                              Δ{dYaw > 0 ? '+' : ''}{dYaw}
-                            </span>
-                            <button
-                              onClick={() => {
-                                if (viewerHandle.current?.lookAt) {
-                                  try { viewerHandle.current.lookAt(h.pitch, h.yaw, 100); } catch {}
-                                }
-                              }}
-                              title="Apuntar la camara al hotspot"
-                              style={{
-                                background: 'rgba(142, 104, 73,0.1)',
-                                border: '1px solid rgba(142, 104, 73,0.25)',
-                                borderRadius: 3,
-                                color: '#FFF9E9',
-                                padding: '1px 6px',
-                                fontSize: 9,
-                                cursor: 'pointer',
-                                fontFamily: 'inherit',
-                              }}
-                            >
-                              go
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </>
-                  )}
-                </>
-              )}
-
-              {tab === 'variants' && (
-                <>
-                  {currentScene?.variants && currentScene.variants.length > 0 ? (
-                    <>
-                      <div
-                        style={{
-                          fontSize: 9,
-                          opacity: 0.55,
-                          letterSpacing: 1,
-                          marginBottom: 6,
-                        }}
-                      >
-                        VARIANTES ({currentScene.variants.length})
-                      </div>
-                      {currentScene.variants.map((v) => (
-                        <div
-                          key={v.id}
-                          style={{
-                            background: 'rgba(255,255,255,0.04)',
-                            borderRadius: 4,
-                            padding: '5px 7px',
-                            marginBottom: 3,
-                            fontSize: 10,
-                          }}
-                        >
-                          <div style={{ fontWeight: 600 }}>{v.label}</div>
-                          <div style={{ opacity: 0.6, fontSize: 9 }}>
-                            {v.linkSceneId ? `→ link a ${v.linkSceneId}` : v.panorama?.split('/').pop()}
-                          </div>
+                        <select value={d.targetSceneId ?? ''} onChange={(e) => updateDraft(d.id, { targetSceneId: e.target.value })} style={{ ...inputStyle, width: '100%', marginBottom: 3 }}>
+                          <option value="">-- escena destino --</option>
+                          {sceneList.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
+                        </select>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.6, fontSize: 9 }}>
+                          <span>pitch: {d.pitch}</span>
+                          <span>yaw: {d.yaw}</span>
                         </div>
-                      ))}
-
-                      <div
-                        style={{
-                          marginTop: 10,
-                          paddingTop: 8,
-                          borderTop: '1px solid rgba(142, 104, 73,0.18)',
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: 9,
-                            opacity: 0.55,
-                            letterSpacing: 1,
-                            marginBottom: 4,
-                          }}
-                        >
-                          BOTON DE VARIANTE
-                        </div>
-                        <div
-                          style={{
-                            background: 'rgba(255,255,255,0.04)',
-                            borderRadius: 4,
-                            padding: '5px 7px',
-                            marginBottom: 6,
-                            fontSize: 10,
-                            opacity: 0.85,
-                          }}
-                        >
-                          actual:{' '}
-                          {currentScene.variantButton
-                            ? `p:${currentScene.variantButton.pitch}, y:${currentScene.variantButton.yaw}`
-                            : '(no fijado)'}
-                        </div>
-                        {draftVariantBtn && (
-                          <div
-                            style={{
-                              background: 'rgba(93,213,240,0.12)',
-                              border: '1px solid rgba(93,213,240,0.4)',
-                              borderRadius: 4,
-                              padding: '5px 7px',
-                              marginBottom: 6,
-                              fontSize: 10,
-                            }}
-                          >
-                            <b style={{ color: '#5DD5F0' }}>draft:</b> p:{draftVariantBtn.pitch}, y:
-                            {draftVariantBtn.yaw}
-                          </div>
-                        )}
-                        <button
-                          onClick={setVariantBtnHere}
-                          style={{
-                            width: '100%',
-                            padding: '5px 10px',
-                            fontSize: 10,
-                            background: 'rgba(93,213,240,0.15)',
-                            border: '1px dashed rgba(93,213,240,0.5)',
-                            borderRadius: 4,
-                            color: '#5DD5F0',
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                            fontWeight: 700,
-                          }}
-                        >
-                          + Fijar boton de variante en el crosshair
-                        </button>
                       </div>
-                    </>
-                  ) : (
-                    <div style={{ opacity: 0.55, fontSize: 11, padding: 8 }}>
-                      Esta escena no tiene variantes definidas.
-                    </div>
-                  )}
-                </>
-              )}
-
-              {tab === 'plan' && (
-                <>
-                  <div
-                    style={{
-                      fontSize: 9,
-                      opacity: 0.55,
-                      letterSpacing: 1,
-                      marginBottom: 6,
-                    }}
-                  >
-                    FLOOR PLAN — {selectedApartment?.floorPlan?.rooms?.length ?? 0} ROOMS
+                    ))}
                   </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      opacity: 0.7,
-                      padding: 6,
-                      background: 'rgba(255,255,255,0.04)',
-                      borderRadius: 4,
-                      marginBottom: 6,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    Para mover las burbujas, abre el Floor Plan (icono mapa en la sidebar) y
-                    expandelo. Veras el modo arrastre activo. El boton{' '}
-                    <b style={{ color: '#5DD5F0' }}>copiar todo</b> trae el snippet ya hecho.
-                  </div>
-                  {(selectedApartment?.floorPlan?.rooms ?? []).map((r) => (
-                    <div
-                      key={r.id}
-                      style={{
-                        background: r.sceneId === currentSceneId
-                          ? 'rgba(93,213,240,0.12)'
-                          : 'rgba(255,255,255,0.04)',
-                        border: r.sceneId === currentSceneId
-                          ? '1px solid rgba(93,213,240,0.4)'
-                          : '1px solid transparent',
-                        borderRadius: 4,
-                        padding: '5px 7px',
-                        marginBottom: 3,
-                        fontSize: 10,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <span style={{ fontWeight: 600 }}>{r.label}</span>
-                      <span style={{ opacity: 0.7, fontSize: 9 }}>
-                        dx:{r.dotX} dy:{r.dotY}
-                      </span>
-                    </div>
-                  ))}
-                </>
-              )}
+                )}
 
-              {tab === 'playback' && (
-                <>
-                  <div style={{ fontSize: 10, opacity: 0.7, lineHeight: 1.5, marginBottom: 8 }}>
-                    Recorrido <b style={{ color: '#5DD5F0' }}>hacia las salidas</b>. Apunta la cámara
-                    (arrastra) y captura tramos, o genera uno automático desde los hotspots. El motor
-                    panea <i>from→to</i> y transiciona al siguiente.
-                  </div>
-
-                  {/* Ajustes de velocidad / HFOV — afectan preview + export */}
-                  <div
-                    style={{
-                      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(142, 104, 73,0.18)',
-                      borderRadius: 5, padding: 6, marginBottom: 8,
-                    }}
-                  >
-                    <div style={{ fontSize: 9, opacity: 0.55, letterSpacing: 1, marginBottom: 6 }}>
-                      VELOCIDAD / HFOV (preview + export)
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                      {([
-                        ['Pan °/s', 'panSpeed', 1, 40, 1],
-                        ['Transición °/s', 'transitionSpeed', 2, 80, 1],
-                        ['Toma fija (ms)', 'staticHoldMs', 500, 8000, 100],
-                        ['HFOV', 'hfov', 60, 150, 1],
-                      ] as const).map(([label, key, min, max, step]) => (
-                        <label
-                          key={key}
-                          style={{ fontSize: 9, opacity: 0.85, display: 'flex', flexDirection: 'column', gap: 2 }}
+                {currentScene?.hotspots && currentScene.hotspots.length > 0 && (
+                  <>
+                    <div style={labelStyle}>En config ({currentScene.hotspots.length})</div>
+                    {currentScene.hotspots.map((h) => {
+                      const dYaw = Math.round((coords.yaw - (h.yaw ?? 0)) * 10) / 10;
+                      const aligned = Math.abs(dYaw) < 3;
+                      return (
+                        <div
+                          key={h.id}
+                          style={{
+                            background: aligned ? 'rgba(93,213,240,0.12)' : 'rgba(255,255,255,0.04)',
+                            border: aligned ? '1px solid rgba(93,213,240,0.4)' : '1px solid transparent',
+                            borderRadius: 5, padding: '5px 7px', marginBottom: 3, fontSize: 10,
+                            display: 'grid', gridTemplateColumns: '1fr auto auto auto', gap: 6, alignItems: 'center',
+                          }}
                         >
-                          <span>
-                            {label}: <b style={{ color: '#5DD5F0' }}>{pbSettings[key]}</b>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{h.label}</span>
+                          <span style={{ opacity: 0.6, fontSize: 9 }}>p:{h.pitch} y:{h.yaw}</span>
+                          <span style={{ fontSize: 9, color: aligned ? CYAN : 'rgba(142,104,73,0.45)', minWidth: 32, textAlign: 'right' }}>
+                            Δ{dYaw > 0 ? '+' : ''}{dYaw}
                           </span>
-                          <input
-                            type="range"
-                            min={min}
-                            max={max}
-                            step={step}
-                            value={pbSettings[key]}
-                            onChange={(e) => setPbSettings((s) => ({ ...s, [key]: Number(e.target.value) }))}
-                            style={{ width: '100%', accentColor: '#5DD5F0' }}
-                          />
-                        </label>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => copy(exportPlaybackSettings(), 'pb-settings')}
-                      style={{
-                        width: '100%', marginTop: 6, padding: '5px 8px', fontSize: 10, fontWeight: 700,
-                        background: 'rgba(93,213,240,0.14)', border: '1px solid rgba(93,213,240,0.4)',
-                        borderRadius: 4, color: '#5DD5F0', cursor: 'pointer', fontFamily: 'inherit',
-                      }}
-                    >
-                      {copied === 'pb-settings' ? '✓ ajustes copiados' : 'Copiar ajustes (bloque playback)'}
-                    </button>
-                  </div>
-
-                  {/* Autogenerar + toma estática */}
-                  <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
-                    <button
-                      onClick={genFromExits}
-                      title="Crea una toma por cada salida (hotspot), ordenadas por yaw"
-                      style={{
-                        flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700,
-                        background: 'rgba(93,213,240,0.18)', border: '1px solid rgba(93,213,240,0.5)',
-                        borderRadius: 5, color: '#5DD5F0', cursor: 'pointer', fontFamily: 'inherit',
-                      }}
-                    >
-                      ⚡ Generar desde salidas
-                    </button>
-                    <button
-                      onClick={addStaticHold}
-                      title="Agrega una toma estática mirando hacia el crosshair"
-                      style={{
-                        padding: '6px 8px', fontSize: 10, fontWeight: 700,
-                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(142, 104, 73,0.3)',
-                        borderRadius: 5, color: '#FFF9E9', cursor: 'pointer', fontFamily: 'inherit',
-                      }}
-                    >
-                      + estática
-                    </button>
-                  </div>
-
-                  {/* Captura from → to */}
-                  <div
-                    style={{
-                      display: 'flex', gap: 4, marginBottom: 6, padding: 6,
-                      background: 'rgba(255,255,255,0.03)', borderRadius: 5,
-                      border: '1px solid rgba(142, 104, 73,0.18)',
-                    }}
-                  >
-                    <button
-                      onClick={markFrom}
-                      title="Marca la vista actual como inicio del tramo"
-                      style={{
-                        flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700,
-                        background: pendingFrom ? 'rgba(93,213,240,0.28)' : 'rgba(93,213,240,0.12)',
-                        border: '1px dashed rgba(93,213,240,0.5)', borderRadius: 4,
-                        color: '#5DD5F0', cursor: 'pointer', fontFamily: 'inherit',
-                      }}
-                    >
-                      {pendingFrom ? `FROM ✓ (y:${pendingFrom.yaw})` : '① Marcar inicio'}
-                    </button>
-                    <button
-                      onClick={addSegment}
-                      title="Agrega el tramo desde el inicio marcado hasta la vista actual"
-                      style={{
-                        flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700,
-                        background: 'rgba(93,213,240,0.12)', border: '1px dashed rgba(93,213,240,0.5)',
-                        borderRadius: 4, color: '#5DD5F0', cursor: 'pointer', fontFamily: 'inherit',
-                      }}
-                    >
-                      ② Agregar tramo → aquí
-                    </button>
-                  </div>
-
-                  {/* Preview / stop */}
-                  <button
-                    onClick={previewing ? stopPreview : previewPlayback}
-                    disabled={!pbAnims.length}
-                    style={{
-                      width: '100%', padding: '7px 10px', fontSize: 11, fontWeight: 700,
-                      background: previewing ? 'rgba(255,120,120,0.18)' : 'rgba(80,200,120,0.18)',
-                      border: previewing ? '1px solid rgba(255,120,120,0.5)' : '1px solid rgba(80,200,120,0.5)',
-                      borderRadius: 5, color: previewing ? '#FF9090' : '#80E090',
-                      cursor: pbAnims.length ? 'pointer' : 'not-allowed', opacity: pbAnims.length ? 1 : 0.4,
-                      fontFamily: 'inherit', marginBottom: 8,
-                    }}
-                  >
-                    {previewing ? '■ Detener preview' : '▶ Previsualizar recorrido'}
-                  </button>
-
-                  {/* Lista de tramos */}
-                  {pbAnims.length > 0 ? (
-                    <>
-                      <div style={{ fontSize: 9, opacity: 0.55, letterSpacing: 1, marginBottom: 4 }}>
-                        TRAMOS ({pbAnims.length})
-                      </div>
-                      {pbAnims.map((a, i) => {
-                        const isStatic =
-                          Math.abs(a.from.yaw - a.to.yaw) < 1 && Math.abs(a.from.pitch - a.to.pitch) < 1;
-                        return (
-                          <div
-                            key={i}
-                            style={{
-                              background: 'rgba(255,255,255,0.04)', borderRadius: 4, padding: '4px 7px',
-                              marginBottom: 3, fontSize: 10, display: 'flex', gap: 6,
-                              alignItems: 'center', justifyContent: 'space-between',
-                            }}
+                          <button
+                            onClick={() => { try { viewerHandle.current?.lookAt?.(h.pitch, h.yaw, 100); } catch {} }}
+                            title="Apuntar la cámara al hotspot"
+                            style={btn('ghost', { padding: '1px 7px', fontSize: 9 })}
                           >
-                            <span style={{ opacity: 0.5, minWidth: 16 }}>{i + 1}</span>
-                            <span style={{ flex: 1, fontSize: 9 }}>
-                              {isStatic ? (
-                                <>mira <b>y:{a.to.yaw}</b> p:{a.to.pitch}</>
-                              ) : (
-                                <>y:{a.from.yaw}→<b>{a.to.yaw}</b> · p:{a.from.pitch}→{a.to.pitch}</>
-                              )}
-                            </span>
-                            <button
-                              onClick={() => { try { viewerHandle.current?.lookAt?.(a.from.pitch, a.from.yaw, pbSettings.hfov, 400); } catch {} }}
-                              title="Apuntar al inicio de este tramo"
-                              style={{
-                                background: 'rgba(142, 104, 73,0.12)', border: '1px solid rgba(142, 104, 73,0.25)',
-                                borderRadius: 3, color: '#FFF9E9', padding: '1px 6px', fontSize: 9,
-                                cursor: 'pointer', fontFamily: 'inherit',
-                              }}
-                            >
-                              go
-                            </button>
-                          </div>
-                        );
-                      })}
-                      <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
-                        <button
-                          onClick={removeLastSegment}
-                          style={{
-                            flex: 1, padding: '5px 8px', fontSize: 10, background: 'rgba(255,180,80,0.12)',
-                            border: '1px solid rgba(255,180,80,0.4)', borderRadius: 4, color: '#FFC080',
-                            cursor: 'pointer', fontFamily: 'inherit',
-                          }}
-                        >
-                          ↶ Quitar último
-                        </button>
-                        <button
-                          onClick={clearSceneAnims}
-                          style={{
-                            flex: 1, padding: '5px 8px', fontSize: 10, background: 'rgba(255,80,80,0.12)',
-                            border: '1px solid rgba(255,80,80,0.4)', borderRadius: 4, color: '#FF8888',
-                            cursor: 'pointer', fontFamily: 'inherit',
-                          }}
-                        >
-                          × Limpiar escena
-                        </button>
-                      </div>
-
-                      {/* Export */}
-                      <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-                        <button
-                          onClick={() => copy(exportPlaybackScene(), 'pb-scene')}
-                          style={{
-                            flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700,
-                            background: 'rgba(93,213,240,0.18)', border: '1px solid rgba(93,213,240,0.5)',
-                            borderRadius: 4, color: '#5DD5F0', cursor: 'pointer', fontFamily: 'inherit',
-                          }}
-                        >
-                          {copied === 'pb-scene' ? '✓ copiado' : 'Copiar esta escena'}
-                        </button>
-                        <button
-                          onClick={() => copy(exportPlaybackAll(), 'pb-all')}
-                          title="Exporta las animaciones de todas las escenas capturadas"
-                          style={{
-                            flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700,
-                            background: 'rgba(93,213,240,0.1)', border: '1px solid rgba(93,213,240,0.35)',
-                            borderRadius: 4, color: '#5DD5F0', cursor: 'pointer', fontFamily: 'inherit',
-                          }}
-                        >
-                          {copied === 'pb-all' ? '✓ copiado' : 'Copiar TODAS'}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div style={{ opacity: 0.55, fontSize: 11, padding: 8, textAlign: 'center' }}>
-                      Sin tramos aún. Usa <b style={{ color: '#5DD5F0' }}>⚡ Generar desde salidas</b> o
-                      captura con ① / ②.
-                    </div>
-                  )}
-                </>
-              )}
-
-              {tab === 'export' && (
-                <>
-                  <button
-                    onClick={() => copy(exportSceneSnippet(), 'export-scene')}
-                    style={{
-                      width: '100%',
-                      padding: '7px 10px',
-                      fontSize: 11,
-                      background: 'rgba(93,213,240,0.18)',
-                      border: '1px solid rgba(93,213,240,0.5)',
-                      borderRadius: 5,
-                      color: '#5DD5F0',
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      fontWeight: 700,
-                      marginBottom: 6,
-                      textAlign: 'left',
-                    }}
-                  >
-                    {copied === 'export-scene'
-                      ? '✓ Escena copiada (drafts + variantButton incluidos)'
-                      : 'Exportar escena actual completa'}
-                  </button>
-                  <button
-                    onClick={() => copy(exportFloorPlanSnippet(), 'export-plan')}
-                    style={{
-                      width: '100%',
-                      padding: '7px 10px',
-                      fontSize: 11,
-                      background: 'rgba(93,213,240,0.18)',
-                      border: '1px solid rgba(93,213,240,0.5)',
-                      borderRadius: 5,
-                      color: '#5DD5F0',
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      fontWeight: 700,
-                      marginBottom: 6,
-                      textAlign: 'left',
-                    }}
-                  >
-                    {copied === 'export-plan' ? '✓ Floor plan copiado' : 'Exportar floor plan completo'}
-                  </button>
-                  <div
-                    style={{
-                      fontSize: 9,
-                      opacity: 0.5,
-                      lineHeight: 1.5,
-                      padding: 6,
-                      marginTop: 4,
-                    }}
-                  >
-                    Los snippets vienen en formato TS listo para pegar en{' '}
-                    <code style={{ color: '#5DD5F0' }}>tour.config.ts</code>. Ajusta el helper{' '}
-                    <code>PANO()</code> al de tu proyecto y los <code>defaultView</code> manualmente
-                    si quieres una vista inicial concreta.
-                  </div>
-                </>
-              )}
-
-              {tab === 'check' && (
-                <>
-                  {validation && validation.issues.length === 0 ? (
-                    <div
-                      style={{
-                        padding: 8,
-                        background: 'rgba(80,200,120,0.12)',
-                        border: '1px solid rgba(80,200,120,0.4)',
-                        borderRadius: 4,
-                        color: '#80E090',
-                        fontSize: 11,
-                        textAlign: 'center',
-                      }}
-                    >
-                      ✓ Sin problemas detectados en este apartamento
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ display: 'flex', gap: 4, marginBottom: 6, fontSize: 9 }}>
-                        <span
-                          style={{
-                            background: 'rgba(255,80,80,0.15)',
-                            color: '#FF8888',
-                            padding: '2px 6px',
-                            borderRadius: 3,
-                          }}
-                        >
-                          rotos: {validation?.byKind.broken ?? 0}
-                        </span>
-                        <span
-                          style={{
-                            background: 'rgba(255,180,80,0.15)',
-                            color: '#FFC080',
-                            padding: '2px 6px',
-                            borderRadius: 3,
-                          }}
-                        >
-                          sin vuelta: {validation?.byKind['missing-reciprocal'] ?? 0}
-                        </span>
-                        <span
-                          style={{
-                            background: 'rgba(180,180,180,0.15)',
-                            color: '#CCCCCC',
-                            padding: '2px 6px',
-                            borderRadius: 3,
-                          }}
-                        >
-                          huerfanas: {validation?.byKind.orphan ?? 0}
-                        </span>
-                      </div>
-                      {validation?.issues.map((i, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            fontSize: 9,
-                            padding: '4px 6px',
-                            marginBottom: 3,
-                            background:
-                              i.kind === 'broken'
-                                ? 'rgba(255,80,80,0.08)'
-                                : i.kind === 'missing-reciprocal'
-                                  ? 'rgba(255,180,80,0.08)'
-                                  : 'rgba(180,180,180,0.08)',
-                            borderLeft:
-                              i.kind === 'broken'
-                                ? '2px solid #FF8888'
-                                : i.kind === 'missing-reciprocal'
-                                  ? '2px solid #FFC080'
-                                  : '2px solid #888',
-                            borderRadius: 3,
-                            color: '#FFF9E9',
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          {i.msg}
+                            go
+                          </button>
                         </div>
-                      ))}
-                    </>
-                  )}
-                </>
-              )}
+                      );
+                    })}
+                  </>
+                )}
+              </Section>
+
+              {/* 🎚️ VARIANTES */}
+              <Section
+                icon="🎚️"
+                title="Variantes"
+                badge={currentScene?.variants?.length ?? 0}
+                open={openSections.has('variants')}
+                onToggle={() => toggleSection('variants')}
+                hint="Variantes de la escena (ej. amueblado / obra gris) y posición del botón para alternarlas."
+              >
+                {currentScene?.variants && currentScene.variants.length > 0 ? (
+                  <>
+                    <div style={labelStyle}>Variantes ({currentScene.variants.length})</div>
+                    {currentScene.variants.map((v) => (
+                      <div key={v.id} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 5, padding: '5px 7px', marginBottom: 3, fontSize: 10 }}>
+                        <div style={{ fontWeight: 600 }}>{v.label}</div>
+                        <div style={{ opacity: 0.55, fontSize: 9 }}>
+                          {v.linkSceneId ? `→ link a ${v.linkSceneId}` : v.panorama?.split('/').pop()}
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid rgba(142,104,73,0.18)' }}>
+                      <div style={labelStyle}>Botón de variante</div>
+                      <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 5, padding: '5px 7px', marginBottom: 6, fontSize: 10, opacity: 0.85 }}>
+                        actual:{' '}
+                        {currentScene.variantButton ? `p:${currentScene.variantButton.pitch}, y:${currentScene.variantButton.yaw}` : '(no fijado)'}
+                      </div>
+                      {draftVariantBtn && (
+                        <div style={{ background: 'rgba(93,213,240,0.12)', border: '1px solid rgba(93,213,240,0.4)', borderRadius: 5, padding: '5px 7px', marginBottom: 6, fontSize: 10 }}>
+                          <b style={{ color: CYAN }}>draft:</b> p:{draftVariantBtn.pitch}, y:{draftVariantBtn.yaw}
+                        </div>
+                      )}
+                      <button onClick={setVariantBtnHere} style={btn('cyan', { width: '100%', border: `1px dashed rgba(93,213,240,0.5)` })}>
+                        + Fijar botón de variante en el crosshair
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ opacity: 0.5, fontSize: 11, padding: 4 }}>Esta escena no tiene variantes definidas.</div>
+                )}
+              </Section>
+
+              {/* 🎬 REPRODUCCIÓN */}
+              <Section
+                icon="🎬"
+                title="Reproducción"
+                badge={pbAnims.length}
+                open={openSections.has('playback')}
+                onToggle={() => toggleSection('playback')}
+                hint={<>Recorrido <b style={{ color: CYAN }}>hacia las salidas</b>. Ajusta velocidad/HFOV, captura tramos o genéralos desde los hotspots, previsualiza y exporta.</>}
+              >
+                {/* Ajustes de velocidad / HFOV */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(142,104,73,0.18)', borderRadius: 6, padding: 7, marginBottom: 8 }}>
+                  <div style={labelStyle}>Velocidad / HFOV (preview + export)</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+                    {([
+                      ['Pan °/s', 'panSpeed', 1, 40, 1],
+                      ['Transición °/s', 'transitionSpeed', 2, 80, 1],
+                      ['Toma fija (ms)', 'staticHoldMs', 500, 8000, 100],
+                      ['HFOV', 'hfov', 60, 150, 1],
+                    ] as const).map(([label, key, min, max, step]) => (
+                      <label key={key} style={{ fontSize: 9, opacity: 0.85, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span>{label}: <b style={{ color: CYAN }}>{pbSettings[key]}</b></span>
+                        <input
+                          type="range" min={min} max={max} step={step} value={pbSettings[key]}
+                          onChange={(e) => setPbSettings((s) => ({ ...s, [key]: Number(e.target.value) }))}
+                          style={{ width: '100%', accentColor: CYAN }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <button onClick={() => copy(exportPlaybackSettings(), 'pb-settings')} style={btn('cyan', { width: '100%', marginTop: 7 })}>
+                    {copied === 'pb-settings' ? '✓ ajustes copiados' : 'Copiar ajustes (bloque playback)'}
+                  </button>
+                </div>
+
+                {/* Autogenerar + toma estática */}
+                <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+                  <button onClick={genFromExits} title="Crea una toma por cada salida (hotspot), ordenadas por yaw" style={btn('cyan', { flex: 1 })}>
+                    ⚡ Generar desde salidas
+                  </button>
+                  <button onClick={addStaticHold} title="Agrega una toma estática mirando hacia el crosshair" style={btn('ghost')}>
+                    + estática
+                  </button>
+                </div>
+
+                {/* Captura from → to */}
+                <div style={{ display: 'flex', gap: 4, marginBottom: 6, padding: 6, background: 'rgba(255,255,255,0.03)', borderRadius: 6, border: '1px solid rgba(142,104,73,0.18)' }}>
+                  <button onClick={markFrom} title="Marca la vista actual como inicio del tramo" style={btn('cyan', { flex: 1, border: `1px dashed rgba(93,213,240,0.5)`, background: pendingFrom ? 'rgba(93,213,240,0.28)' : 'rgba(93,213,240,0.12)' })}>
+                    {pendingFrom ? `FROM ✓ (y:${pendingFrom.yaw})` : '① Marcar inicio'}
+                  </button>
+                  <button onClick={addSegment} title="Agrega el tramo desde el inicio marcado hasta la vista actual" style={btn('cyan', { flex: 1, border: `1px dashed rgba(93,213,240,0.5)`, background: 'rgba(93,213,240,0.12)' })}>
+                    ② Agregar tramo → aquí
+                  </button>
+                </div>
+
+                <button
+                  onClick={previewing ? stopPreview : previewPlayback}
+                  disabled={!pbAnims.length}
+                  style={btn(previewing ? 'danger' : 'green', { width: '100%', padding: '7px 10px', fontSize: 11, marginBottom: 8, cursor: pbAnims.length ? 'pointer' : 'not-allowed', opacity: pbAnims.length ? 1 : 0.4 })}
+                >
+                  {previewing ? '■ Detener preview' : '▶ Previsualizar recorrido'}
+                </button>
+
+                {pbAnims.length > 0 ? (
+                  <>
+                    <div style={labelStyle}>Tramos ({pbAnims.length})</div>
+                    {pbAnims.map((a, i) => {
+                      const isStatic = Math.abs(a.from.yaw - a.to.yaw) < 1 && Math.abs(a.from.pitch - a.to.pitch) < 1;
+                      return (
+                        <div key={i} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 5, padding: '4px 7px', marginBottom: 3, fontSize: 10, display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ opacity: 0.45, minWidth: 16 }}>{i + 1}</span>
+                          <span style={{ flex: 1, fontSize: 9 }}>
+                            {isStatic ? (<>mira <b>y:{a.to.yaw}</b> p:{a.to.pitch}</>) : (<>y:{a.from.yaw}→<b>{a.to.yaw}</b> · p:{a.from.pitch}→{a.to.pitch}</>)}
+                          </span>
+                          <button onClick={() => { try { viewerHandle.current?.lookAt?.(a.from.pitch, a.from.yaw, pbSettings.hfov, 400); } catch {} }} title="Apuntar al inicio de este tramo" style={btn('ghost', { padding: '1px 7px', fontSize: 9 })}>go</button>
+                        </div>
+                      );
+                    })}
+                    <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                      <button onClick={removeLastSegment} style={btn('warn', { flex: 1 })}>↶ Quitar último</button>
+                      <button onClick={clearSceneAnims} style={btn('danger', { flex: 1 })}>× Limpiar escena</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                      <button onClick={() => copy(exportPlaybackScene(), 'pb-scene')} style={btn('cyan', { flex: 1 })}>
+                        {copied === 'pb-scene' ? '✓ copiado' : 'Copiar esta escena'}
+                      </button>
+                      <button onClick={() => copy(exportPlaybackAll(), 'pb-all')} title="Exporta las animaciones de todas las escenas capturadas" style={btn('cyan', { flex: 1, background: 'rgba(93,213,240,0.1)' })}>
+                        {copied === 'pb-all' ? '✓ copiado' : 'Copiar TODAS'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ opacity: 0.5, fontSize: 10, padding: 4, textAlign: 'center' }}>
+                    Sin tramos aún. Usa <b style={{ color: CYAN }}>⚡ Generar desde salidas</b> o captura con ① / ②.
+                  </div>
+                )}
+              </Section>
+
+              {/* 🗺️ FLOOR PLAN */}
+              <Section
+                icon="🗺️"
+                title="Floor plan"
+                badge={selectedApartment?.floorPlan?.rooms?.length ?? 0}
+                open={openSections.has('plan')}
+                onToggle={() => toggleSection('plan')}
+                hint={<>Para mover las burbujas, abre el Floor Plan (ícono mapa en la sidebar) y expándelo: ahí está el modo arrastre y el botón <b style={{ color: CYAN }}>copiar todo</b>.</>}
+              >
+                {(selectedApartment?.floorPlan?.rooms ?? []).map((r) => (
+                  <div
+                    key={r.id}
+                    style={{
+                      background: r.sceneId === currentSceneId ? 'rgba(93,213,240,0.12)' : 'rgba(255,255,255,0.04)',
+                      border: r.sceneId === currentSceneId ? '1px solid rgba(93,213,240,0.4)' : '1px solid transparent',
+                      borderRadius: 5, padding: '5px 7px', marginBottom: 3, fontSize: 10,
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>{r.label}</span>
+                    <span style={{ opacity: 0.6, fontSize: 9 }}>dx:{r.dotX} dy:{r.dotY}</span>
+                  </div>
+                ))}
+              </Section>
+
+              {/* 📤 EXPORTAR */}
+              <Section
+                icon="📤"
+                title="Exportar"
+                open={openSections.has('export')}
+                onToggle={() => toggleSection('export')}
+                hint={<>Snippets TS listos para pegar en <code style={{ color: CYAN }}>tour.config.ts</code>. Ajusta el helper <code>PANO()</code> y el <code>defaultView</code> a mano si quieres.</>}
+              >
+                <button onClick={() => copy(exportSceneSnippet(), 'export-scene')} style={btn('cyan', { width: '100%', padding: '7px 10px', fontSize: 11, marginBottom: 6, textAlign: 'left' })}>
+                  {copied === 'export-scene' ? '✓ Escena copiada (drafts + variantButton)' : 'Exportar escena actual completa'}
+                </button>
+                <button onClick={() => copy(exportFloorPlanSnippet(), 'export-plan')} style={btn('cyan', { width: '100%', padding: '7px 10px', fontSize: 11, textAlign: 'left' })}>
+                  {copied === 'export-plan' ? '✓ Floor plan copiado' : 'Exportar floor plan completo'}
+                </button>
+              </Section>
+
+              {/* ✅ VALIDACIÓN */}
+              <Section
+                icon={validation && validation.issues.length === 0 ? '✅' : '⚠️'}
+                title="Validación"
+                badge={validation?.issues.length ?? 0}
+                badgeTone={validation && validation.issues.length === 0 ? 'green' : 'red'}
+                open={openSections.has('check')}
+                onToggle={() => toggleSection('check')}
+                hint="Revisa hotspots rotos, caminos sin vuelta (A→B sin B→A) y escenas a las que nadie llega."
+              >
+                {validation && validation.issues.length === 0 ? (
+                  <div style={{ padding: 8, background: 'rgba(80,200,120,0.12)', border: '1px solid rgba(80,200,120,0.4)', borderRadius: 5, color: '#80E090', fontSize: 11, textAlign: 'center' }}>
+                    ✓ Sin problemas detectados en este apartamento
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 6, fontSize: 9 }}>
+                      <span style={{ background: 'rgba(255,80,80,0.15)', color: '#FF8888', padding: '2px 6px', borderRadius: 3 }}>rotos: {validation?.byKind.broken ?? 0}</span>
+                      <span style={{ background: 'rgba(255,180,80,0.15)', color: '#FFC080', padding: '2px 6px', borderRadius: 3 }}>sin vuelta: {validation?.byKind['missing-reciprocal'] ?? 0}</span>
+                      <span style={{ background: 'rgba(180,180,180,0.15)', color: '#CCCCCC', padding: '2px 6px', borderRadius: 3 }}>huérfanas: {validation?.byKind.orphan ?? 0}</span>
+                    </div>
+                    {validation?.issues.map((i, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          fontSize: 9, padding: '4px 6px', marginBottom: 3,
+                          background: i.kind === 'broken' ? 'rgba(255,80,80,0.08)' : i.kind === 'missing-reciprocal' ? 'rgba(255,180,80,0.08)' : 'rgba(180,180,180,0.08)',
+                          borderLeft: i.kind === 'broken' ? '2px solid #FF8888' : i.kind === 'missing-reciprocal' ? '2px solid #FFC080' : '2px solid #888',
+                          borderRadius: 3, color: CREAM, lineHeight: 1.4,
+                        }}
+                      >
+                        {i.msg}
+                      </div>
+                    ))}
+                  </>
+                )}
+              </Section>
             </div>
 
-            {/* Hint footer */}
-            <div
-              style={{
-                fontSize: 9,
-                opacity: 0.4,
-                padding: '4px 10px 8px',
-                borderTop: '1px solid rgba(142, 104, 73,0.1)',
-                lineHeight: 1.4,
-              }}
-            >
-              <kbd
-                style={{
-                  background: 'rgba(255,255,255,0.08)',
-                  padding: '0 4px',
-                  borderRadius: 2,
-                }}
-              >
-                D
-              </kbd>{' '}
-              colapsa · arrastra la escena para apuntar · usa los dropdowns para saltar
+            {/* Footer */}
+            <div style={{ fontSize: 9, opacity: 0.4, padding: '6px 11px 8px', borderTop: '1px solid rgba(142,104,73,0.14)', lineHeight: 1.4 }}>
+              <kbd style={{ background: 'rgba(255,255,255,0.08)', padding: '0 4px', borderRadius: 2 }}>D</kbd> colapsa todo · arrastra la escena para apuntar el crosshair · ‹ › cambian de escena
             </div>
           </>
         )}
