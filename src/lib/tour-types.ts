@@ -19,6 +19,13 @@ export interface HotspotConfig {
   description?: string;
   targetSceneId?: string;
   url?: string;
+  /**
+   * Si se define, la burbuja SOLO aparece cuando la escena se ve en esa
+   * variante (p. ej. 'obra-gris'). Útil para puentes que solo existen en el
+   * recorrido en obra gris (ej. Sala↔Cocina, cuyo paso amueblado es por el
+   * comedor que no tiene render gris). En la vista amueblada se oculta.
+   */
+  onlyInVariant?: string;
 }
 
 // ─── Scene ────────────────────────────────────────────────────────────

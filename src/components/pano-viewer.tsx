@@ -521,14 +521,17 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
         // variante ("Ver amueblado") para volver a la vista normal.
         const showingAltVariant =
           variants.length >= 2 && variantId != null && variantId !== variants[0].id;
-        const navHotspots = showingAltVariant
-          ? (scene.hotspots ?? []).filter(
-              (h) =>
-                h.type === 'scene' &&
-                !!h.targetSceneId &&
-                sceneHasVariant(h.targetSceneId, variantId!),
-            )
-          : (scene.hotspots ?? []);
+        const navHotspots = (scene.hotspots ?? []).filter((h) => {
+          if (showingAltVariant) {
+            if (h.type !== 'scene' || !h.targetSceneId) return false;
+            // Burbuja exclusiva de una variante (puente solo-gris), o cuarto
+            // que TAMBIÉN tiene la variante activa.
+            if (h.onlyInVariant) return h.onlyInVariant === variantId;
+            return sceneHasVariant(h.targetSceneId, variantId!);
+          }
+          // Vista amueblada: ocultar las burbujas exclusivas de otra variante.
+          return !h.onlyInVariant;
+        });
 
         const hotspots: Record<string, unknown>[] = navHotspots.map(
           (hs: HotspotConfig, idx: number) => ({

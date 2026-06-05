@@ -121,6 +121,10 @@ const mirrinao: TourConfig = {
                 { id: 'cg-sala-to-comedor', pitch: -0.2, yaw: 2.4,   type: 'scene', label: 'Comedor',        description: 'Ir al comedor',        targetSceneId: 'cg-comedor' },
                 { id: 'cg-sala-to-2piso',   pitch: -9.8, yaw: 85.3,  type: 'scene', label: 'Segundo Piso',   description: 'Subir al segundo piso', targetSceneId: 'cg-bano-social' },
                 { id: 'cg-sala-to-patio',   pitch: -5.7, yaw: -71.6, type: 'scene', label: 'Patio Exterior', description: 'Salir al patio',       targetSceneId: 'cg-patio-exterior' },
+                // Puente SOLO en obra gris: la cocina amueblada se llega por el
+                // comedor (sin render gris), así que en gris la enlazamos directo.
+                // Posición estimada (hacia la abertura del comedor); calibrar en ?debug=1.
+                { id: 'cg-sala-to-cocina-gris', pitch: -0.5, yaw: 2.4, type: 'scene', label: 'Cocina y Patio', description: 'Ir a la cocina', targetSceneId: 'cg-cocina-patio', onlyInVariant: 'obra-gris' },
               ],
             },
 
@@ -150,6 +154,9 @@ const mirrinao: TourConfig = {
               variantButton: { pitch: 2.1, yaw: 84.7 },
               hotspots: [
                 { id: 'cg-coc-to-comedor', pitch: -1.2, yaw: -86.6, type: 'scene', label: 'Comedor', description: 'Volver al comedor', targetSceneId: 'cg-comedor' },
+                // Puente SOLO en obra gris: vuelta a la Sala (misma abertura social).
+                // Posición estimada; calibrar en ?debug=1.
+                { id: 'cg-coc-to-sala-gris', pitch: -1.2, yaw: -86.6, type: 'scene', label: 'Sala', description: 'Volver a la sala', targetSceneId: 'cg-sala', onlyInVariant: 'obra-gris' },
               ],
             },
 

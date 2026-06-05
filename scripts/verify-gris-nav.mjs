@@ -43,19 +43,19 @@ async function main() {
   console.log('SALA obra gris — burbujas:');
   console.log('  ', grisLabels.join(' | '));
 
-  // Navegar "Segundo Piso" en gris → debe ir a Baño Social en gris
-  const segundoPiso = await page.$$('.pano-bubble');
+  // Navegar "Cocina" en gris → debe ir a Cocina en gris (puente solo-gris)
+  const bubbles = await page.$$('.pano-bubble');
   let clicked = false;
-  for (const b of segundoPiso) {
+  for (const b of bubbles) {
     const t = await b.evaluate((e) => e.querySelector('.pano-bubble-label')?.textContent || '');
-    if (/segundo piso/i.test(t)) { await b.evaluate((e) => e.click()); clicked = true; break; }
+    if (/cocina/i.test(t)) { await b.evaluate((e) => e.click()); clicked = true; break; }
   }
   await page.waitForTimeout(2500);
   const afterNav = await labels(page);
 
   await browser.close();
 
-  console.log('Tras clic "Segundo Piso" (esperado: Baño Social en gris):');
+  console.log('Tras clic "Cocina" (esperado: Cocina en gris, con vuelta a Sala):');
   console.log('  ', afterNav.join(' | '));
   console.log('Panoramas pedidos:');
   for (const u of panoReqs) console.log('   ', u);
@@ -63,15 +63,19 @@ async function main() {
   // Veredicto
   const hasSegundo = grisLabels.some((l) => /segundo piso/i.test(l));
   const hasPatio = grisLabels.some((l) => /patio/i.test(l));
+  const hasCocina = grisLabels.some((l) => /cocina/i.test(l));
   const noAcceso = !grisLabels.some((l) => /acceso/i.test(l) && !/\[VAR\]/.test(l));
-  const navegoGris = clicked && panoReqs.some((u) => /obra-gris\/.*bano-social/.test(u));
+  const navegoCocinaGris = clicked && panoReqs.some((u) => /obra-gris\/.*cocina-patio/.test(u));
+  const cocinaVuelveSala = afterNav.some((l) => /sala/i.test(l) && !/\[VAR\]/.test(l));
 
   console.log('\n=== VEREDICTO ===');
-  console.log('  Gris muestra "Segundo Piso":           ', hasSegundo ? 'OK' : 'FALLO');
-  console.log('  Gris muestra "Patio Exterior":         ', hasPatio ? 'OK' : 'FALLO');
+  console.log('  Gris Sala muestra "Segundo Piso":      ', hasSegundo ? 'OK' : 'FALLO');
+  console.log('  Gris Sala muestra "Patio Exterior":    ', hasPatio ? 'OK' : 'FALLO');
+  console.log('  Gris Sala muestra "Cocina" (NUEVO):    ', hasCocina ? 'OK' : 'FALLO');
   console.log('  Gris oculta cuartos sin gris (Acceso): ', noAcceso ? 'OK' : 'FALLO');
-  console.log('  Navegó a Baño Social EN GRIS:          ', navegoGris ? 'OK' : 'FALLO');
-  process.exit(hasSegundo && hasPatio && noAcceso && navegoGris ? 0 : 1);
+  console.log('  Navegó a Cocina EN GRIS:               ', navegoCocinaGris ? 'OK' : 'FALLO');
+  console.log('  Cocina gris vuelve a Sala:             ', cocinaVuelveSala ? 'OK' : 'FALLO');
+  process.exit(hasSegundo && hasPatio && hasCocina && noAcceso && navegoCocinaGris && cocinaVuelveSala ? 0 : 1);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
