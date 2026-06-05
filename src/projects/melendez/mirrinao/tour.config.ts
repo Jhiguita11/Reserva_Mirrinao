@@ -124,7 +124,7 @@ const mirrinao: TourConfig = {
                 // Puente SOLO en obra gris: la cocina amueblada se llega por el
                 // comedor (sin render gris), así que en gris la enlazamos directo.
                 // Posición estimada (hacia la abertura del comedor); calibrar en ?debug=1.
-                { id: 'cg-sala-to-cocina-gris', pitch: -0.5, yaw: 2.4, type: 'scene', label: 'Cocina y Patio', description: 'Ir a la cocina', targetSceneId: 'cg-cocina-patio', onlyInVariant: 'obra-gris' },
+                { id: 'cg-sala-to-cocina-gris', pitch: -0.5, yaw: 65.7, type: 'scene', label: 'Cocina y Patio', description: 'Ir a la cocina', targetSceneId: 'cg-cocina-patio', onlyInVariant: 'obra-gris' },
               ],
             },
 
