@@ -509,12 +509,26 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
         // Si hay override, lo usamos como vista inicial (preserva direccion)
         const initialView = viewOverride ?? defaultView;
 
+        // ¿La escena destino tiene una variante con este id (p.ej. "obra-gris")?
+        const sceneHasVariant = (sid: string, vid: string) =>
+          !!scenes.find((s) => s.id === sid)?.variants?.some((v) => v.id === vid);
+
         // En la variante "obra gris" (cualquier variante distinta a la primera/
-        // amueblada) ocultamos las burbujas de navegación: solo debe quedar el
-        // botón de variante ("Ver amueblado") para volver a la vista normal.
+        // amueblada) NO ocultamos toda la navegación: mostramos solo las burbujas
+        // hacia cuartos que TAMBIÉN tienen esa variante, para poder recorrer la
+        // casa entera en obra gris (p.ej. subir al 2º piso o ver la alcoba en
+        // obra gris). El resto de burbujas se ocultan; siempre queda el botón de
+        // variante ("Ver amueblado") para volver a la vista normal.
         const showingAltVariant =
           variants.length >= 2 && variantId != null && variantId !== variants[0].id;
-        const navHotspots = showingAltVariant ? [] : (scene.hotspots ?? []);
+        const navHotspots = showingAltVariant
+          ? (scene.hotspots ?? []).filter(
+              (h) =>
+                h.type === 'scene' &&
+                !!h.targetSceneId &&
+                sceneHasVariant(h.targetSceneId, variantId!),
+            )
+          : (scene.hotspots ?? []);
 
         const hotspots: Record<string, unknown>[] = navHotspots.map(
           (hs: HotspotConfig, idx: number) => ({
@@ -527,6 +541,23 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
               hotSpotDiv.appendChild(buildHotspotDiv(hs));
             },
             clickHandlerFunc: () => {
+              // Al navegar entre cuartos preservamos la variante de forma
+              // predecible: en obra gris el destino abre en obra gris; en
+              // amueblado el destino abre en amueblado (evita que la variante
+              // quede "pegajosa" entre escenas).
+              if (hs.type === 'scene' && hs.targetSceneId) {
+                const target = scenes.find((s) => s.id === hs.targetSceneId);
+                if (showingAltVariant && sceneHasVariant(hs.targetSceneId, variantId!)) {
+                  setSceneVariant(hs.targetSceneId, variantId!);
+                  setCurrentScene(hs.targetSceneId);
+                  return;
+                }
+                if (target?.variants?.length) {
+                  setSceneVariant(hs.targetSceneId, target.variants[0].id);
+                  setCurrentScene(hs.targetSceneId);
+                  return;
+                }
+              }
               onHotspotClick?.(hs);
             },
           }),
