@@ -3,6 +3,10 @@ import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { mirrinaoMetadata } from "@/projects/melendez/mirrinao/metadata";
+import { assetPath } from "@/lib/asset-path";
+
+// OG/Twitter usan la imagen exterior; con basePath hay que prefijar la ruta.
+const OG_IMAGE = assetPath("/projects/melendez/mirrinao/images/exterior/building.jpg");
 
 const inter = Inter({
   variable: "--font-inter",
@@ -18,6 +22,9 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
+  // Base (solo origen) para volver absolutas las URLs de OG/Twitter; el path
+  // /Reserva_Mirrinao ya lo añade assetPath, así no se duplica.
+  metadataBase: new URL("https://jhiguita11.github.io/"),
   title: "Reserva de Mirriñao | Recorrido Virtual 360°",
   description:
     "Explora la Casa Grande de Reserva de Mirriñao — Constructora Meléndez con tecnología panorámica interactiva 360°.",
@@ -35,12 +42,12 @@ export const metadata: Metadata = {
   authors: [{ name: "NEXARQ 360" }],
   icons: {
     icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/favicon.ico", sizes: "any" },
+      { url: assetPath("/favicon.svg"), type: "image/svg+xml" },
+      { url: assetPath("/favicon-32x32.png"), sizes: "32x32", type: "image/png" },
+      { url: assetPath("/favicon-16x16.png"), sizes: "16x16", type: "image/png" },
+      { url: assetPath("/favicon.ico"), sizes: "any" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    apple: [{ url: assetPath("/apple-touch-icon.png"), sizes: "180x180" }],
   },
   openGraph: {
     title: "Reserva de Mirriñao | Recorrido Virtual 360°",
@@ -49,7 +56,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/projects/melendez/mirrinao/images/exterior/building.jpg",
+        url: OG_IMAGE,
         width: 1200,
         height: 630,
         alt: "Reserva de Mirriñao — Constructora Meléndez",
@@ -60,7 +67,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Reserva de Mirriñao | Recorrido Virtual 360°",
     description: "Explora la Casa Grande de Reserva de Mirriñao con tecnología panorámica interactiva 360°.",
-    images: ["/projects/melendez/mirrinao/images/exterior/building.jpg"],
+    images: [OG_IMAGE],
   },
 };
 
