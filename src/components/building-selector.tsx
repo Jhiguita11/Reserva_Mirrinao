@@ -261,7 +261,7 @@ function BuildingHotspot({
             <button
               className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-semibold transition-all duration-200 cursor-pointer hover:brightness-110"
               style={{ background: `${BEIGE}18`, color: '#FFF9E9', border: `1px solid ${BEIGE}30` }}
-              onClick={() => { if (!debugEnabled) onClick(); }}
+              onClick={onClick}
             >
               Iniciar Recorrido
               <ArrowRight size={13} />
