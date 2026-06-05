@@ -33,9 +33,13 @@ export default function BuildingSelector() {
   const { config, setApartment } = useTourStore();
   const [hoveredApt, setHoveredApt] = useState<string | null>(null);
 
-  /* ── Modo debug (?debug=1): arrastrar el ojo para recolocarlo ── */
-  const debugEnabled =
-    typeof window !== 'undefined' && window.location.search.includes('debug=1');
+  /* ── Modo debug (?debug=1): arrastrar el ojo para recolocarlo ──
+     Se resuelve DESPUÉS de montar para no romper la hidratación (el server
+     no conoce window.location → debe coincidir con el primer render cliente). */
+  const [debugEnabled, setDebugEnabled] = useState(false);
+  useEffect(() => {
+    setDebugEnabled(window.location.search.includes('debug=1'));
+  }, []);
   const [overrides, setOverrides] = useState<Record<string, { x: number; y: number }>>({});
   const [dragId, setDragId] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
