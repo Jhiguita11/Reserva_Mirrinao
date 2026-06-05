@@ -7,6 +7,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
+  --font-serif: var(--font-serif);
   --color-primary: var(--primary);
   --color-ring: var(--ring);
   --color-border: var(--border);
@@ -30,13 +31,13 @@
   --radius: 0.625rem;
   --background: #000000;
   --foreground: #ffffff;
-  --primary: #E8D9B0;
-  --ring: #E8D9B0;
-  --border: rgba(232, 217, 176, 0.15);
-  --input: rgba(232, 217, 176, 0.12);
-  --muted: rgba(232, 217, 176, 0.08);
+  --primary: #8E6849;
+  --ring: #8E6849;
+  --border: rgba(142, 104, 73, 0.15);
+  --input: rgba(142, 104, 73, 0.12);
+  --muted: rgba(142, 104, 73, 0.08);
   --muted-foreground: rgba(255, 255, 255, 0.5);
-  --accent: rgba(232, 217, 176, 0.12);
+  --accent: rgba(142, 104, 73, 0.12);
   --accent-foreground: #ffffff;
   --destructive: #ef4444;
   --card: rgba(255, 255, 255, 0.04);
@@ -92,32 +93,32 @@
   justify-content: center;
   position: relative;
   box-shadow: 0 0 24px rgba(0, 0, 0, 0.4);
-  border: 2px solid rgba(212, 175, 55, 0.35);
+  border: 2px solid rgba(142, 104, 73, 0.35);
   backdrop-filter: blur(8px);
   transition: all 0.25s ease;
 }
 
 .pano-hotspot:hover .pano-hotspot-circle {
-  border-color: rgba(212, 175, 55, 0.6);
-  box-shadow: 0 0 32px rgba(212, 175, 55, 0.2);
+  border-color: rgba(142, 104, 73, 0.6);
+  box-shadow: 0 0 32px rgba(142, 104, 73, 0.2);
 }
 
 /* Scene hotspot — gold */
 .pano-hotspot-circle[data-type="scene"] {
-  background: rgba(212, 175, 55, 0.9);
-  box-shadow: 0 0 24px rgba(212, 175, 55, 0.4);
+  background: rgba(142, 104, 73, 0.9);
+  box-shadow: 0 0 24px rgba(142, 104, 73, 0.4);
 }
 
 /* Info hotspot — gold dimmed */
 .pano-hotspot-circle[data-type="info"] {
-  background: rgba(212, 175, 55, 0.6);
-  box-shadow: 0 0 20px rgba(212, 175, 55, 0.25);
+  background: rgba(142, 104, 73, 0.6);
+  box-shadow: 0 0 20px rgba(142, 104, 73, 0.25);
 }
 
 /* URL hotspot — gold dimmed */
 .pano-hotspot-circle[data-type="url"] {
-  background: rgba(212, 175, 55, 0.6);
-  box-shadow: 0 0 20px rgba(212, 175, 55, 0.25);
+  background: rgba(142, 104, 73, 0.6);
+  box-shadow: 0 0 20px rgba(142, 104, 73, 0.25);
 }
 
 /* Pulse ring for scene hotspots */
@@ -131,7 +132,7 @@
   position: absolute;
   inset: -4px;
   border-radius: 50%;
-  border: 2px solid rgba(212, 175, 55, 0.5);
+  border: 2px solid rgba(142, 104, 73, 0.5);
   animation: pano-pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
@@ -160,7 +161,7 @@
   transform: translateX(-50%) translateY(6px);
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(212, 175, 55, 0.15);
+  border: 1px solid rgba(142, 104, 73, 0.15);
   border-radius: 10px;
   padding: 8px 16px;
   white-space: nowrap;
@@ -204,7 +205,7 @@
 .scene-transition-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(232,217,176,0.10) 0%, rgba(255,255,255,0.05) 50%, rgba(232,217,176,0.10) 100%);
+  background: linear-gradient(135deg, rgba(142, 104, 73,0.10) 0%, rgba(255,255,255,0.05) 50%, rgba(142, 104, 73,0.10) 100%);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   z-index: 20;
@@ -291,21 +292,55 @@
    SCROLLBAR
    ═══════════════════════════════════════════════════════════════════ */
 
+.tour-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(142, 104, 73, 0.45) transparent;
+}
+
 .tour-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 8px;
 }
 
 .tour-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(142, 104, 73, 0.05);
+  border-radius: 8px;
+  margin: 6px 0;
 }
 
 .tour-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(212, 175, 55, 0.25);
-  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(142, 104, 73, 0.55), rgba(142, 104, 73, 0.55));
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.2s ease;
 }
 
 .tour-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(212, 175, 55, 0.5);
+  background: linear-gradient(180deg, rgba(142, 104, 73, 0.9), rgba(142, 104, 73, 0.9));
+  background-clip: padding-box;
+}
+
+/* Scrollbar global — mismo caramelo en TODA la app (cualquier contenedor con scroll) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(142, 104, 73, 0.55) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(142, 104, 73, 0.55);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(142, 104, 73, 0.9);
+  background-clip: padding-box;
 }
 
 /* ═══════════════════════════════════════════════════════════════════

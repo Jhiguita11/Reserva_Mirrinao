@@ -20,6 +20,7 @@ import {
 } from '@/lib/playback-utils';
 import { useTourStore } from '@/lib/tour-store';
 import { assetPath } from '@/lib/asset-path';
+import { resolvePanoramaUrl } from '@/lib/pano-resolution';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -98,7 +99,7 @@ const HOTSPOT_CSS = `
   content: '';
   position: absolute;
   border-radius: 50%;
-  border: 2px solid rgba(232,217,176,0.4);
+  border: 2px solid rgba(142, 104, 73,0.4);
   animation: bubble-pulse var(--pulse-dur, 2.8s) ease-out infinite;
   animation-delay: var(--pulse-delay, 0s);
 }
@@ -107,7 +108,7 @@ const HOTSPOT_CSS = `
 }
 .pano-bubble-rings::after {
   inset: -20px;
-  border-color: rgba(232,217,176,0.18);
+  border-color: rgba(142, 104, 73,0.18);
   animation-delay: calc(var(--pulse-delay, 0s) + 0.5s);
 }
 
@@ -119,14 +120,14 @@ const HOTSPOT_CSS = `
   background: rgba(10, 10, 10, 0.68);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 2px solid rgba(232,217,176,0.55);
+  border: 2px solid rgba(142, 104, 73,0.55);
   display: flex;
   align-items: center;
   justify-content: center;
   color: rgba(255,255,255,0.92);
   position: relative;
   box-shadow:
-    0 0 0 1px rgba(232,217,176,0.15),
+    0 0 0 1px rgba(142, 104, 73,0.15),
     0 8px 32px rgba(0,0,0,0.5),
     0 2px 8px rgba(0,0,0,0.4);
   transition: box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease;
@@ -134,9 +135,9 @@ const HOTSPOT_CSS = `
 
 .pano-bubble:hover .pano-bubble-circle {
   background: rgba(20, 20, 20, 0.80);
-  border-color: rgba(232,217,176,0.85);
+  border-color: rgba(142, 104, 73,0.85);
   box-shadow:
-    0 0 0 2px rgba(232,217,176,0.35),
+    0 0 0 2px rgba(142, 104, 73,0.35),
     0 12px 48px rgba(0,0,0,0.55),
     0 4px 16px rgba(0,0,0,0.4);
 }
@@ -144,7 +145,7 @@ const HOTSPOT_CSS = `
 /* ── Room name pill ──────────────────────────────────────────── */
 .pano-bubble-label {
   background: rgba(0,0,0,0.72);
-  border: 1px solid rgba(232,217,176,0.3);
+  border: 1px solid rgba(142, 104, 73,0.3);
   border-radius: 24px;
   padding: 3px 10px;
   font-size: 9px;
@@ -153,14 +154,14 @@ const HOTSPOT_CSS = `
   white-space: nowrap;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.45), 0 0 0 1px rgba(232,217,176,0.08);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.45), 0 0 0 1px rgba(142, 104, 73,0.08);
   backdrop-filter: blur(8px);
 }
 
 /* ── Info variant ────────────────────────────────────────────── */
 .pano-bubble-info .pano-bubble-circle {
-  border-color: rgba(232,217,176,0.55);
-  color: rgba(232,217,176,0.95);
+  border-color: rgba(142, 104, 73,0.55);
+  color: rgba(255, 249, 233,0.95);
   animation-delay: 1.3s;
 }
 
@@ -211,6 +212,31 @@ const HOTSPOT_CSS = `
   animation: pano-variant-dissolve 0.4s ease;
   transform-origin: center center;
   will-change: filter;
+}
+
+/* ── Movil: aligerar GPU ─────────────────────────────────────────
+   El backdrop-filter se recalcula en cada frame mientras la burbuja
+   flota sobre el panorama en movimiento — costoso en GPU movil. En
+   pantallas pequenas reducimos el blur y lo quitamos del pill. */
+@media (max-width: 768px) {
+  .pano-bubble-circle {
+    width: 58px;
+    height: 58px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .pano-bubble-label {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(0,0,0,0.82);
+  }
+}
+
+/* Respeta la preferencia de menos movimiento del sistema */
+@media (prefers-reduced-motion: reduce) {
+  .pano-bubble { animation: none; }
+  .pano-bubble-rings::before,
+  .pano-bubble-rings::after { animation: none; opacity: 0; }
 }
 `;
 
@@ -318,10 +344,10 @@ function buildVariantHotspotDiv(nextVariantLabel: string): HTMLDivElement {
 
   const circle = document.createElement('div');
   circle.className = 'pano-bubble-circle';
-  circle.style.background = '#E8D9B0';
+  circle.style.background = '#8E6849';
   circle.style.borderColor = 'rgba(255,255,255,0.45)';
-  circle.style.color = '#0a0806';
-  circle.style.boxShadow = '0 4px 20px rgba(232,217,176,0.4), 0 2px 8px rgba(0,0,0,0.35)';
+  circle.style.color = '#FFF9E9';
+  circle.style.boxShadow = '0 4px 20px rgba(142, 104, 73,0.4), 0 2px 8px rgba(0,0,0,0.35)';
 
   const rings = document.createElement('div');
   rings.className = 'pano-bubble-rings';
@@ -329,7 +355,7 @@ function buildVariantHotspotDiv(nextVariantLabel: string): HTMLDivElement {
 
   // Icono de capas (Layers) en SVG, 26x26
   const iconWrap = document.createElement('div');
-  iconWrap.style.cssText = 'position:relative;z-index:1;display:flex;align-items:center;justify-content:center;color:#0a0806;';
+  iconWrap.style.cssText = 'position:relative;z-index:1;display:flex;align-items:center;justify-content:center;color:#FFF9E9;';
   iconWrap.innerHTML = `
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -344,8 +370,8 @@ function buildVariantHotspotDiv(nextVariantLabel: string): HTMLDivElement {
   const pill = document.createElement('div');
   pill.className = 'pano-bubble-label';
   pill.textContent = `Ver ${nextVariantLabel.toLowerCase()}`;
-  pill.style.background = 'rgba(232,217,176,0.95)';
-  pill.style.color = '#0a0806';
+  pill.style.background = 'rgba(142, 104, 73,0.95)';
+  pill.style.color = '#FFF9E9';
   pill.style.fontWeight = '700';
   wrapper.appendChild(pill);
 
@@ -477,12 +503,20 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
         const variants = scene.variants ?? [];
         const variantId = selectedVariants[sceneId];
         const variant = variants.find((v) => v.id === variantId);
-        const panorama = variant?.panorama ?? scene.panorama;
+        // Resolucion segun dispositivo: 8000px en desktop, 4096px en movil.
+        const panorama = resolvePanoramaUrl(variant?.panorama ?? scene.panorama);
         const defaultView = variant?.defaultView ?? scene.defaultView;
         // Si hay override, lo usamos como vista inicial (preserva direccion)
         const initialView = viewOverride ?? defaultView;
 
-        const hotspots: Record<string, unknown>[] = (scene.hotspots ?? []).map(
+        // En la variante "obra gris" (cualquier variante distinta a la primera/
+        // amueblada) ocultamos las burbujas de navegación: solo debe quedar el
+        // botón de variante ("Ver amueblado") para volver a la vista normal.
+        const showingAltVariant =
+          variants.length >= 2 && variantId != null && variantId !== variants[0].id;
+        const navHotspots = showingAltVariant ? [] : (scene.hotspots ?? []);
+
+        const hotspots: Record<string, unknown>[] = navHotspots.map(
           (hs: HotspotConfig, idx: number) => ({
             id: `hs-${sceneId}-${idx}`,
             pitch: hs.pitch,
@@ -711,7 +745,7 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
             const adjScene = scenes.find((s) => s.id === adjId);
             if (adjScene) {
               const img = new Image();
-              img.src = adjScene.panorama;
+              img.src = resolvePanoramaUrl(adjScene.panorama);
             }
           }
         }, CROSSFADE_MS + 50);
@@ -955,14 +989,14 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
         {/* Loading state */}
         {!scriptReady && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, zIndex: 100, background: '#000' }}>
-            <BrandLogo style={{ width: 180 }} />
+            <BrandLogo style={{ width: 230 }} />
             <div style={{ position: 'relative', width: 36, height: 36, marginTop: 28, marginBottom: 20 }}>
-              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid transparent', borderTopColor: '#E8D9B0', animation: 'pano-spin 1.2s linear infinite' }} />
-              <div style={{ position: 'absolute', inset: 4, borderRadius: '50%', border: '2px solid transparent', borderTopColor: 'rgba(232,217,176,0.3)', animation: 'pano-spin 1.8s linear infinite reverse' }} />
+              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid transparent', borderTopColor: '#8E6849', animation: 'pano-spin 1.2s linear infinite' }} />
+              <div style={{ position: 'absolute', inset: 4, borderRadius: '50%', border: '2px solid transparent', borderTopColor: 'rgba(142, 104, 73,0.3)', animation: 'pano-spin 1.8s linear infinite reverse' }} />
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               {[0,1,2].map(i => (
-                <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#E8D9B0', animation: `pano-pulse 1.4s ease-in-out ${i*0.2}s infinite` }} />
+                <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#8E6849', animation: `pano-pulse 1.4s ease-in-out ${i*0.2}s infinite` }} />
               ))}
             </div>
             <style>{`

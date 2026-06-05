@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === "production";
-const repoName = "NEXARQ";
+const repoName = "reserva_mirrinao";
 
 const nextConfig: NextConfig = {
   output: "export",

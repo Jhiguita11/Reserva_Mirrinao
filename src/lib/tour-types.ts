@@ -87,6 +87,18 @@ export interface FloorPlanRoomConfig {
   dotX?: number;
   /** Posicion % vertical del radar sobre imagen real (0-100) */
   dotY?: number;
+  /**
+   * Offset (grados) entre el yaw=0 del panorama de esta escena y el "arriba"
+   * del plano. Se suma al viewerYaw para orientar el cono del radar.
+   * Calibrar en ?debug=1 con las teclas [ y ] (Shift = ±5°).
+   */
+  radarOffset?: number;
+  /**
+   * Variante de la escena que abre esta burbuja (p. ej. 'obra-gris'). Si se
+   * define, la burbuja solo se marca como activa al ver esa variante y al
+   * hacer click cambia a ella. Si se omite, representa la vista amueblada.
+   */
+  variantId?: string;
   adjacentTo?: string[];
 }
 
@@ -129,6 +141,12 @@ export interface ApartmentConfig {
   /** Optional hotspot position override (% of building image) */
   hotspotX?: number;
   hotspotY?: number;
+  /**
+   * Indica explicitamente si el apartamento esta disponible para recorrer.
+   * false = mostrar como "Proximamente" en el selector y sidebar.
+   * Si se omite, se determina automaticamente segun las escenas.
+   */
+  available?: boolean;
   /** Scenes for this apartment */
   scenes: SceneConfig[];
   /** Floor plan for this apartment */

@@ -21,7 +21,7 @@ interface TourControlsProps {
   viewerRef: React.RefObject<PanoViewerHandle | null>;
 }
 
-const GOLD = '#E8D9B0';
+const GOLD = '#8E6849';
 
 export default function TourControls({ viewerRef }: TourControlsProps) {
   const selectedApartment = useTourStore((s) => s.selectedApartment);
@@ -85,17 +85,17 @@ export default function TourControls({ viewerRef }: TourControlsProps) {
   }, [viewerRef, isGyroActive]);
 
   const btnBase = 'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer select-none';
-  const btnDefault = `${btnBase} bg-black/50 backdrop-blur-md border border-[rgba(232,217,176,0.12)] text-[rgba(232,217,176,0.55)] hover:text-[#E8D9B0] hover:bg-black/70 hover:border-[rgba(232,217,176,0.25)] hover:scale-105 active:scale-95`;
-  const btnActive = `${btnBase} bg-[#E8D9B0] text-black shadow-md shadow-[rgba(232,217,176,0.25)]`;
+  const btnDefault = `${btnBase} bg-black/50 backdrop-blur-md border border-[rgba(142, 104, 73,0.12)] text-[rgba(255, 249, 233,0.55)] hover:text-[#FFF9E9] hover:bg-black/70 hover:border-[rgba(142, 104, 73,0.25)] hover:scale-105 active:scale-95`;
+  const btnActive = `${btnBase} bg-[#8E6849] text-[#FFF9E9] shadow-md shadow-[rgba(142, 104, 73,0.25)]`;
 
   // Flechas del Scene Dots Strip — más compactas que los controles
-  const arrowBtn = 'w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer select-none text-[rgba(232,217,176,0.55)] hover:text-[#E8D9B0] hover:scale-110 active:scale-95';
+  const arrowBtn = 'w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer select-none text-[rgba(255, 249, 233,0.55)] hover:text-[#FFF9E9] hover:scale-110 active:scale-95';
 
   return (
     <div className="fixed bottom-4 md:bottom-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 md:gap-2.5">
 
       {/* ─── Scene Dots Strip ─── */}
-      <div className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3.5 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-[rgba(232,217,176,0.1)]">
+      <div className="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3.5 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-[rgba(142, 104, 73,0.1)]">
         {/* Prev */}
         <button
           onClick={handlePrev}
@@ -120,7 +120,7 @@ export default function TourControls({ viewerRef }: TourControlsProps) {
                 style={{
                   width: isActive ? 26 : 8,
                   height: 8,
-                  backgroundColor: isActive ? GOLD : 'rgba(232,217,176,0.25)',
+                  backgroundColor: isActive ? GOLD : 'rgba(142, 104, 73,0.25)',
                   boxShadow: isActive ? `0 0 8px ${GOLD}44` : 'none',
                 }}
               />
@@ -140,14 +140,14 @@ export default function TourControls({ viewerRef }: TourControlsProps) {
         </button>
 
         {/* Divider + scene name — visible en todas las pantallas */}
-        <div className="w-px h-5 bg-[rgba(232,217,176,0.15)] mx-0.5" />
-        <span className="text-[10px] sm:text-[12px] text-[rgba(232,217,176,0.6)] font-medium tracking-wide whitespace-nowrap tabular-nums max-w-[100px] sm:max-w-none truncate">
+        <div className="w-px h-5 bg-[rgba(142, 104, 73,0.15)] mx-0.5" />
+        <span className="text-[10px] sm:text-[12px] text-[rgba(255, 249, 233,0.6)] font-medium tracking-wide whitespace-nowrap tabular-nums max-w-[100px] sm:max-w-none truncate">
           {currentScene?.name ?? ''}&nbsp;·&nbsp;{currentSceneIndex + 1}/{totalScenes}
         </span>
       </div>
 
       {/* ─── Controls Strip ─── */}
-      <div className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-[rgba(232,217,176,0.1)]">
+      <div className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-[rgba(142, 104, 73,0.1)]">
 
         {/* Reset view */}
         <button
@@ -175,7 +175,7 @@ export default function TourControls({ viewerRef }: TourControlsProps) {
           />
         </button>
 
-        <div className="w-px h-5 bg-[rgba(232,217,176,0.15)]" />
+        <div className="w-px h-5 bg-[rgba(142, 104, 73,0.15)]" />
 
         {/* Zoom out — oculto en móvil (se usa pinch) */}
         <button
@@ -201,7 +201,7 @@ export default function TourControls({ viewerRef }: TourControlsProps) {
           <ZoomIn size={18} />
         </button>
 
-        <div className="hidden sm:block w-px h-5 bg-[rgba(232,217,176,0.15)]" />
+        <div className="hidden sm:block w-px h-5 bg-[rgba(142, 104, 73,0.15)]" />
 
         {/* Giroscopio — solo en móvil */}
         <button
@@ -231,7 +231,7 @@ export default function TourControls({ viewerRef }: TourControlsProps) {
           {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
         </button>
 
-        <div className="w-px h-5 bg-[rgba(232,217,176,0.15)]" />
+        <div className="w-px h-5 bg-[rgba(142, 104, 73,0.15)]" />
 
         {/* Modo reproducción */}
         <button

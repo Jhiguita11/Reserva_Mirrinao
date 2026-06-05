@@ -21,7 +21,7 @@ export default function TourWelcome({ onStart }: Props) {
         className="absolute bottom-6 left-6"
         style={{ animation: 'welcome-fade-in 0.6s ease 0.2s both' }}
       >
-        <BrandLogo style={{ height: 56 }} />
+        <BrandLogo style={{ height: 76 }} />
       </div>
 
       <div
@@ -29,8 +29,8 @@ export default function TourWelcome({ onStart }: Props) {
         style={{ animation: 'welcome-scale-in 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
       >
         <h1
-          className="text-3xl font-extrabold tracking-tight mb-2"
-          style={{ color: '#E8D9B0', animation: 'welcome-fade-up 0.6s ease 0.3s both' }}
+          className="font-serif text-4xl font-bold tracking-tight mb-2"
+          style={{ color: '#FFF9E9', animation: 'welcome-fade-up 0.6s ease 0.3s both' }}
         >
           {selectedApartment?.name ?? ''}
         </h1>
@@ -42,10 +42,10 @@ export default function TourWelcome({ onStart }: Props) {
         </p>
         <button
           onClick={e => { e.stopPropagation(); onStart(); }}
-          className="group relative px-10 py-3.5 rounded-2xl text-base font-semibold text-black transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-3 cursor-pointer"
-          style={{ background: '#E8D9B0', animation: 'welcome-fade-up 0.6s ease 0.5s both' }}
+          className="group relative px-14 py-5 rounded-2xl text-xl font-semibold transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-3.5 cursor-pointer"
+          style={{ background: '#8E6849', color: '#FFF9E9', animation: 'welcome-fade-up 0.6s ease 0.5s both', boxShadow: '0 8px 30px rgba(142, 104, 73,0.45)' }}
         >
-          <Eye size={20} />
+          <Eye size={26} />
           Iniciar Recorrido 360°
         </button>
         <p

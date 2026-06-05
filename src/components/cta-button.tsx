@@ -19,9 +19,9 @@ export default function CtaButton() {
         style={{
           width: 44,
           height: 44,
-          background: '#E8D9B0',
-          color: '#1a1512',
-          boxShadow: '0 4px 20px rgba(232,217,176,0.35), 0 2px 8px rgba(0,0,0,0.4)',
+          background: '#8E6849',
+          color: '#FFF9E9',
+          boxShadow: '0 4px 20px rgba(142, 104, 73,0.35), 0 2px 8px rgba(0,0,0,0.4)',
           textDecoration: 'none',
         }}
       >
@@ -37,10 +37,10 @@ export default function CtaButton() {
         className="fixed bottom-6 left-6 z-[60] hidden md:flex items-center gap-2 rounded-2xl font-semibold transition-transform duration-200 hover:scale-105 active:scale-95"
         style={{
           padding: '10px 18px',
-          background: '#E8D9B0',
-          color: '#1a1512',
+          background: '#8E6849',
+          color: '#FFF9E9',
           fontSize: 13,
-          boxShadow: '0 4px 24px rgba(232,217,176,0.28), 0 2px 8px rgba(0,0,0,0.45)',
+          boxShadow: '0 4px 24px rgba(142, 104, 73,0.28), 0 2px 8px rgba(0,0,0,0.45)',
           textDecoration: 'none',
         }}
       >

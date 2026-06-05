@@ -43,15 +43,15 @@ export default function InfoPanel() {
         <div
           className="relative flex items-start gap-4 p-5 rounded-2xl
                      bg-black/60 backdrop-blur-xl
-                     border border-[rgba(232,217,176,0.15)]
+                     border border-[rgba(142, 104, 73,0.15)]
                      shadow-2xl shadow-black/40"
         >
           {/* Icon circle */}
           <div
             className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: 'rgba(232,217,176,0.12)', border: '1px solid rgba(232,217,176,0.25)' }}
+            style={{ backgroundColor: 'rgba(142, 104, 73,0.12)', border: '1px solid rgba(142, 104, 73,0.25)' }}
           >
-            <Info className="w-5 h-5" style={{ color: '#E8D9B0' }} />
+            <Info className="w-5 h-5" style={{ color: '#FFF9E9' }} />
           </div>
 
           {/* Content */}

@@ -59,3 +59,6 @@ server.log
 *.tiff
 *.tif
 upload/
+
+# Assets crudos del cliente (TIFF 8000x4000, ~2GB) — solo fuente local, jamás al repo
+/public/projects/Mirriñao/

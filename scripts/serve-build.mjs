@@ -1,11 +1,11 @@
-// Servidor estático para probar el build (out/) con basePath /NEXARQ.
+// Servidor estático para probar el build (out/) con basePath /reserva_mirrinao.
 import { createServer } from 'http';
 import { readFile, stat } from 'fs/promises';
 import { join, extname } from 'path';
 
 const ROOT = join(process.cwd(), 'out');
 const PORT = 4000;
-const PREFIX = '/NEXARQ';
+const PREFIX = '/reserva_mirrinao';
 
 const TYPES = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',

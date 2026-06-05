@@ -59,7 +59,7 @@ export default function PlaybackOverlay() {
           <div
             style={{
               height: 1,
-              background: 'rgba(232,217,176,0.5)',
+              background: 'rgba(142, 104, 73,0.5)',
               marginTop: 24,
               marginBottom: 16,
               animation: 'playback-intro-line 2.6s cubic-bezier(0.22,1,0.36,1) forwards',
@@ -70,7 +70,7 @@ export default function PlaybackOverlay() {
             style={{
               fontSize: 13,
               letterSpacing: '0.35em',
-              color: 'rgba(232,217,176,0.7)',
+              color: 'rgba(255, 249, 233,0.7)',
               fontWeight: 600,
               animation: 'playback-intro-sub 2.6s ease 0.3s both',
             }}
@@ -95,8 +95,8 @@ export default function PlaybackOverlay() {
         className="absolute top-4 right-4 z-10 flex items-center gap-2 pointer-events-auto rounded-full px-4 py-2 transition-all duration-200 hover:scale-105 active:scale-95"
         style={{
           background: 'rgba(0,0,0,0.55)',
-          border: '1px solid rgba(232,217,176,0.25)',
-          color: 'rgba(232,217,176,0.85)',
+          border: '1px solid rgba(142, 104, 73,0.25)',
+          color: 'rgba(255, 249, 233,0.85)',
           backdropFilter: 'blur(12px)',
           fontSize: 12,
           fontWeight: 600,
@@ -121,7 +121,7 @@ export default function PlaybackOverlay() {
         {/* Contador de escenas */}
         <span
           className="tracking-[0.25em] uppercase"
-          style={{ fontSize: 11, color: 'rgba(232,217,176,0.5)', fontWeight: 600 }}
+          style={{ fontSize: 11, color: 'rgba(255, 249, 233,0.5)', fontWeight: 600 }}
         >
           {currentSceneIndex + 1} / {total}
         </span>
@@ -131,7 +131,7 @@ export default function PlaybackOverlay() {
           className="text-center font-extrabold tracking-tight leading-none"
           style={{
             fontSize: 'clamp(32px, 8vw, 56px)',
-            color: '#F5EDD8',
+            color: '#FFF9E9',
             textShadow: '0 2px 24px rgba(0,0,0,0.6)',
           }}
         >
@@ -141,7 +141,7 @@ export default function PlaybackOverlay() {
         {/* Subtítulo — apartamento */}
         <p
           className="tracking-widest uppercase"
-          style={{ fontSize: 12, color: 'rgba(232,217,176,0.45)', fontWeight: 600 }}
+          style={{ fontSize: 12, color: 'rgba(255, 249, 233,0.45)', fontWeight: 600 }}
         >
           {selectedApartment?.name ?? ''}
         </p>
@@ -155,13 +155,13 @@ export default function PlaybackOverlay() {
         {/* Barra de progreso */}
         <div
           className="w-full rounded-full overflow-hidden mb-4"
-          style={{ height: 3, background: 'rgba(232,217,176,0.15)' }}
+          style={{ height: 3, background: 'rgba(142, 104, 73,0.15)' }}
         >
           <div
             key={currentSceneId}
             className="h-full rounded-full"
             style={{
-              background: '#E8D9B0',
+              background: '#8E6849',
               animation: `playback-progress ${sceneDurationMs}ms linear forwards`,
               transformOrigin: 'left center',
             }}
@@ -176,8 +176,8 @@ export default function PlaybackOverlay() {
             style={{
               width: 40, height: 40,
               background: 'rgba(0,0,0,0.45)',
-              border: '1px solid rgba(232,217,176,0.2)',
-              color: 'rgba(232,217,176,0.7)',
+              border: '1px solid rgba(142, 104, 73,0.2)',
+              color: 'rgba(255, 249, 233,0.7)',
             }}
             aria-label="Escena anterior"
           >
@@ -194,7 +194,7 @@ export default function PlaybackOverlay() {
                 style={{
                   width: i === currentSceneIndex ? 24 : 7,
                   height: 7,
-                  background: i === currentSceneIndex ? '#E8D9B0' : 'rgba(232,217,176,0.3)',
+                  background: i === currentSceneIndex ? '#8E6849' : 'rgba(142, 104, 73,0.3)',
                 }}
                 aria-label={s.name}
               />
@@ -207,8 +207,8 @@ export default function PlaybackOverlay() {
             style={{
               width: 40, height: 40,
               background: 'rgba(0,0,0,0.45)',
-              border: '1px solid rgba(232,217,176,0.2)',
-              color: 'rgba(232,217,176,0.7)',
+              border: '1px solid rgba(142, 104, 73,0.2)',
+              color: 'rgba(255, 249, 233,0.7)',
             }}
             aria-label="Escena siguiente"
           >

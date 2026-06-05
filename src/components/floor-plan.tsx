@@ -6,6 +6,10 @@ import { useTourStore } from '@/lib/tour-store';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { FloorPlanRoomConfig } from '@/lib/tour-types';
 
+// Sentido de giro del cono respecto al viewerYaw de pannellum.
+// Si al girar la cámara el radar gira al revés (espejado), cambiar a -1.
+const RADAR_YAW_SIGN = 1;
+
 export default function FloorPlan() {
   const config = useTourStore((s) => s.config);
   const selectedApartment = useTourStore((s) => s.selectedApartment);
@@ -14,9 +18,30 @@ export default function FloorPlan() {
   const showFloorPlan = useTourStore((s) => s.showFloorPlan);
   const toggleFloorPlan = useTourStore((s) => s.toggleFloorPlan);
   const setCurrentScene = useTourStore((s) => s.setCurrentScene);
+  const selectedVariants = useTourStore((s) => s.selectedVariants);
+  const setSceneVariant = useTourStore((s) => s.setSceneVariant);
 
   const floorPlan = selectedApartment?.floorPlan;
   const rooms: FloorPlanRoomConfig[] = floorPlan?.rooms ?? [];
+  const scenes = selectedApartment?.scenes ?? [];
+
+  // Variante "por defecto" (amueblada) de una escena, si tiene variantes.
+  const defaultVariantId = (sceneId: string) =>
+    scenes.find((s) => s.id === sceneId)?.variants?.[0]?.id;
+
+  // Una room del plano es la "actual" si coincide la escena Y la variante activa.
+  // Las rooms sin variantId representan la vista amueblada/por defecto; las que
+  // tienen variantId (p. ej. 'obra-gris') solo se marcan al ver esa variante.
+  const isRoomCurrent = (room: FloorPlanRoomConfig) => {
+    if (room.sceneId !== currentSceneId) return false;
+    const def = defaultVariantId(room.sceneId);
+    const active = selectedVariants[room.sceneId] ?? def;
+    const roomVar = room.variantId ?? def;
+    return roomVar === active;
+  };
+
+  // Room (burbuja) activa actual — la que coincide en escena y variante.
+  const currentRoom = rooms.find(isRoomCurrent);
 
   const [expanded, setExpanded] = useState(false);
   const isMobile = useIsMobile();
@@ -28,13 +53,20 @@ export default function FloorPlan() {
   const [draggingScene, setDraggingScene] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [debugCopied, setDebugCopied] = useState(false);
+  // Offset de orientación del radar por escena (ajuste en vivo en ?debug=1)
+  const [radarOffsets, setRadarOffsets] = useState<Record<string, number>>({});
 
   // Devuelve la posicion efectiva (override si existe, si no la original)
   const effectiveDot = (room: FloorPlanRoomConfig) => {
-    const ov = debugOverrides[room.sceneId];
+    const ov = debugOverrides[room.id];
     if (ov) return ov;
     return { dotX: room.dotX ?? 50, dotY: room.dotY ?? 50 };
   };
+
+  // Offset efectivo del radar (override de debug si existe, si no el del config).
+  // Indexado por room.id para distinguir amueblada vs obra gris (mismo sceneId).
+  const effectiveOffset = (room: FloorPlanRoomConfig) =>
+    radarOffsets[room.id] ?? room.radarOffset ?? 0;
 
   // Convierte el evento de mouse a coordenadas (%) dentro del SVG
   const eventToPct = (e: React.MouseEvent | MouseEvent) => {
@@ -69,24 +101,26 @@ export default function FloorPlan() {
   const debugCopyAll = useCallback(() => {
     if (!rooms.length) return;
     const lines = rooms.map((r) => {
-      const ov = debugOverrides[r.sceneId];
+      const ov = debugOverrides[r.id];
       const dx = ov?.dotX ?? r.dotX ?? 0;
       const dy = ov?.dotY ?? r.dotY ?? 0;
-      return `  { sceneId: '${r.sceneId}', dotX: ${dx}, dotY: ${dy} },`;
+      const off = radarOffsets[r.id] ?? r.radarOffset ?? 0;
+      return `  { id: '${r.id}', dotX: ${dx}, dotY: ${dy}, radarOffset: ${off} },`;
     });
-    const out = '// Posiciones calibradas — pegar dotX/dotY en cada room\n' + lines.join('\n');
+    const out = '// Calibrado — pegar dotX/dotY/radarOffset en cada room\n' + lines.join('\n');
     try {
       navigator.clipboard.writeText(out);
       setDebugCopied(true);
       setTimeout(() => setDebugCopied(false), 1800);
     } catch { /* ignore */ }
-  }, [debugOverrides, rooms]);
+  }, [debugOverrides, radarOffsets, rooms]);
 
   const debugReset = useCallback(() => {
     setDebugOverrides({});
+    setRadarOffsets({});
   }, []);
 
-  const primary = '#E8D9B0';
+  const primary = '#8E6849';
 
   const currentScene = selectedApartment?.scenes?.find((s) => s.id === currentSceneId);
   const currentSceneName = currentScene?.name ?? '';
@@ -95,10 +129,17 @@ export default function FloorPlan() {
   const hasBackgroundImage = Boolean(floorPlan?.backgroundImage);
 
   const handleRoomClick = useCallback(
-    (sceneId: string) => {
-      setCurrentScene(sceneId);
+    (room: FloorPlanRoomConfig) => {
+      setCurrentScene(room.sceneId);
+      // Si la escena tiene variantes, fijar la que corresponde a esta burbuja:
+      // las burbujas de obra gris (variantId) abren esa variante; las normales
+      // vuelven a la vista amueblada/por defecto.
+      const scene = scenes.find((s) => s.id === room.sceneId);
+      if (scene?.variants?.length) {
+        setSceneVariant(room.sceneId, room.variantId ?? scene.variants[0].id);
+      }
     },
-    [setCurrentScene],
+    [setCurrentScene, setSceneVariant, scenes],
   );
 
   const toggleExpand = useCallback(() => {
@@ -116,6 +157,28 @@ export default function FloorPlan() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [expanded]);
 
+  // Debug (?debug=1): ajustar el offset del radar de la escena actual con [ y ]
+  // (Shift = ±5°). El valor se ve en el panel debug y se incluye en "copiar todo".
+  useEffect(() => {
+    if (!debugEnabled || !currentRoom) return;
+    const roomId = currentRoom.id;
+    const baseOffset = currentRoom.radarOffset ?? 0;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '[' && e.key !== ']') return;
+      e.preventDefault();
+      const step = (e.shiftKey ? 5 : 1) * (e.key === ']' ? 1 : -1);
+      setRadarOffsets((prev) => {
+        const base = prev[roomId] ?? baseOffset;
+        let v = Math.round((base + step) * 10) / 10;
+        v = ((v % 360) + 360) % 360;
+        if (v > 180) v -= 360;
+        return { ...prev, [roomId]: v };
+      });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [debugEnabled, currentRoom]);
+
   if (!showFloorPlan) return null;
 
   const svgWidth = expanded ? 900 : 320;
@@ -127,9 +190,12 @@ export default function FloorPlan() {
   const scaleX = svgWidth / planW;
   const scaleY = svgHeight / planH;
 
-  // Build a map of sceneId -> room for adjacency lookups
+  // Build a map of sceneId -> room for adjacency lookups.
+  // Las burbujas de variante (obra gris) NO son destino de conexiones: usamos
+  // siempre la burbuja amueblada de cada escena.
   const roomMap = new Map<string, FloorPlanRoomConfig>();
   for (const room of rooms) {
+    if (room.variantId) continue;
     roomMap.set(room.sceneId, room);
   }
 
@@ -138,7 +204,7 @@ export default function FloorPlan() {
   // En debug, aplica los overrides en memoria.
   const getDotPoint = (room: FloorPlanRoomConfig) => {
     if (hasBackgroundImage) {
-      const ov = debugOverrides[room.sceneId];
+      const ov = debugOverrides[room.id];
       const dx = ov?.dotX ?? room.dotX;
       const dy = ov?.dotY ?? room.dotY;
       if (dx !== undefined && dy !== undefined) {
@@ -223,7 +289,7 @@ export default function FloorPlan() {
         className="fixed z-[9999] flex flex-col items-center justify-end overflow-hidden rounded-2xl border shadow-2xl backdrop-blur-xl transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
         style={{
           background: 'rgba(10, 10, 10, 0.78)',
-          borderColor: 'rgba(232,217,176,0.2)',
+          borderColor: 'rgba(142, 104, 73,0.2)',
           ...(expanded
             ? {
                 bottom: 24,
@@ -253,9 +319,9 @@ export default function FloorPlan() {
         {/* Header bar */}
         <div className="flex w-full items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
-            <MapPin size={expanded ? 16 : 13} className="text-[#E8D9B0]/70" />
+            <MapPin size={expanded ? 16 : 13} className="text-[#FFF9E9]/70" />
             <span
-              className="font-semibold tracking-wide text-[#E8D9B0]/80 select-none"
+              className="font-semibold tracking-wide text-[#FFF9E9]/80 select-none"
               style={{ fontSize: expanded ? 13 : 11 }}
             >
               Floor Plan
@@ -277,7 +343,7 @@ export default function FloorPlan() {
             {/* Close button */}
             <button
               onClick={toggleFloorPlan}
-              className="flex items-center justify-center rounded-lg p-1.5 text-white/60 transition-colors hover:bg-[rgba(232,217,176,0.1)] hover:text-white/90"
+              className="flex items-center justify-center rounded-lg p-1.5 text-white/60 transition-colors hover:bg-[rgba(142, 104, 73,0.1)] hover:text-white/90"
               aria-label="Close floor plan"
             >
               <svg
@@ -296,7 +362,7 @@ export default function FloorPlan() {
             {/* Expand / Collapse */}
             <button
               onClick={toggleExpand}
-              className="flex items-center justify-center rounded-lg p-1.5 text-white/60 transition-colors hover:bg-[rgba(232,217,176,0.1)] hover:text-white/90"
+              className="flex items-center justify-center rounded-lg p-1.5 text-white/60 transition-colors hover:bg-[rgba(142, 104, 73,0.1)] hover:text-white/90"
               aria-label={expanded ? 'Collapse floor plan' : 'Expand floor plan'}
             >
               {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
@@ -364,7 +430,7 @@ export default function FloorPlan() {
 
                 {/* Rooms: rect transparente como area de click + burbuja cyan en dotX/dotY */}
                 {rooms.map((room) => {
-                  const isCurrent = room.sceneId === currentSceneId;
+                  const isCurrent = isRoomCurrent(room);
                   const dot = getDotPoint(room);
                   const rx = room.x * scaleX;
                   const ry = room.y * scaleY;
@@ -386,20 +452,20 @@ export default function FloorPlan() {
                   // Tamano del label
                   const fontSize = expanded ? 12 : 8;
 
-                  const isDragging = draggingScene === room.sceneId;
+                  const isDragging = draggingScene === room.id;
                   return (
                     <g
-                      key={room.sceneId}
+                      key={room.id}
                       style={{ cursor: debugEnabled ? (isDragging ? 'grabbing' : 'grab') : 'pointer' }}
                       onMouseDown={(e) => {
                         if (debugEnabled) {
                           e.stopPropagation();
-                          setDraggingScene(room.sceneId);
+                          setDraggingScene(room.id);
                         }
                       }}
                       onClick={() => {
                         // En debug, no navegamos al hacer click — el mousedown ya inicio drag
-                        if (!debugEnabled) handleRoomClick(room.sceneId);
+                        if (!debugEnabled) handleRoomClick(room);
                       }}
                       role="button"
                       tabIndex={0}
@@ -433,7 +499,7 @@ export default function FloorPlan() {
                           {/* Cono de vision grande (rota con el yaw) */}
                           <g
                             className="pointer-events-none fp-radar-cone"
-                            transform={`rotate(${viewerYaw}, ${dot.cx}, ${dot.cy})`}
+                            transform={`rotate(${RADAR_YAW_SIGN * viewerYaw + effectiveOffset(room)}, ${dot.cx}, ${dot.cy})`}
                           >
                             <path
                               d={`M ${dot.cx} ${dot.cy} L ${lx} ${ly} A ${coneR} ${coneR} 0 0 1 ${rx2} ${ry2} Z`}
@@ -557,7 +623,7 @@ export default function FloorPlan() {
 
                 {/* Rooms (modo clasico) */}
                 {rooms.map((room) => {
-                  const isCurrent = room.sceneId === currentSceneId;
+                  const isCurrent = isRoomCurrent(room);
                   const rx = room.x * scaleX;
                   const ry = room.y * scaleY;
                   const rw = room.width * scaleX;
@@ -568,9 +634,9 @@ export default function FloorPlan() {
 
                   return (
                     <g
-                      key={room.sceneId}
+                      key={room.id}
                       className="cursor-pointer"
-                      onClick={() => handleRoomClick(room.sceneId)}
+                      onClick={() => handleRoomClick(room)}
                       role="button"
                       tabIndex={0}
                       aria-label={`Go to ${room.label}`}
@@ -583,8 +649,8 @@ export default function FloorPlan() {
                         height={rh}
                         rx={radius}
                         ry={radius}
-                        fill={isCurrent ? primary : (room.fill ?? 'rgba(232,217,176,0.08)')}
-                        stroke={isCurrent ? primary : (room.stroke ?? 'rgba(232,217,176,0.18)')}
+                        fill={isCurrent ? primary : (room.fill ?? 'rgba(142, 104, 73,0.08)')}
+                        stroke={isCurrent ? primary : (room.stroke ?? 'rgba(142, 104, 73,0.18)')}
                         strokeWidth={isCurrent ? 2 : 1}
                         filter={isCurrent ? 'url(#fp-glow)' : undefined}
                         className="transition-all duration-300"
@@ -598,7 +664,7 @@ export default function FloorPlan() {
                         height={rh}
                         rx={radius}
                         ry={radius}
-                        fill="rgba(232,217,176,0.06)"
+                        fill="rgba(142, 104, 73,0.06)"
                         className="opacity-0 hover:opacity-100 transition-opacity duration-200 pointer-events-none"
                       />
                       {/* Label text */}
@@ -607,7 +673,7 @@ export default function FloorPlan() {
                         y={isCurrent ? ry + fontSize * 1.4 : center.cy}
                         textAnchor="middle"
                         dominantBaseline="central"
-                        fill={isCurrent ? '#E8D9B0' : 'rgba(232,217,176,0.6)'}
+                        fill={isCurrent ? '#8E6849' : 'rgba(142, 104, 73,0.6)'}
                         fontSize={fontSize}
                         fontWeight={isCurrent ? 700 : 500}
                         className="pointer-events-none select-none"
@@ -628,7 +694,7 @@ export default function FloorPlan() {
                         return (
                           <g
                             className="pointer-events-none fp-radar-cone"
-                            transform={`rotate(${viewerYaw}, ${center.cx}, ${center.cy})`}
+                            transform={`rotate(${RADAR_YAW_SIGN * viewerYaw + effectiveOffset(room)}, ${center.cx}, ${center.cy})`}
                           >
                             <path
                               d={`M ${center.cx} ${center.cy} L ${lx} ${ly} A ${coneR} ${coneR} 0 0 1 ${rx2} ${ry2} Z`}
@@ -678,20 +744,20 @@ export default function FloorPlan() {
               padding: '8px 10px',
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
               fontSize: 11,
-              color: '#E8D9B0',
+              color: '#FFF9E9',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <span style={{ color: '#5DD5F0', fontWeight: 700, letterSpacing: 1, fontSize: 10 }}>
-                ARRASTRA LAS BURBUJAS · {Object.keys(debugOverrides).length} editadas
+                ARRASTRA BURBUJAS · {Object.keys(debugOverrides).length} ed · RADAR [ ] AJUSTA
               </span>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button
                   onClick={debugReset}
                   style={{
                     padding: '3px 9px', fontSize: 10, borderRadius: 4, cursor: 'pointer',
-                    background: 'rgba(255,255,255,0.06)', color: 'rgba(232,217,176,0.8)',
-                    border: '1px solid rgba(232,217,176,0.25)', fontFamily: 'inherit',
+                    background: 'rgba(255,255,255,0.06)', color: 'rgba(255, 249, 233,0.8)',
+                    border: '1px solid rgba(142, 104, 73,0.25)', fontFamily: 'inherit',
                   }}
                 >
                   reset
@@ -708,13 +774,23 @@ export default function FloorPlan() {
                 </button>
               </div>
             </div>
+            {currentRoom && (
+              <div style={{ marginBottom: 6, color: '#5DD5F0', fontSize: 10 }}>
+                <strong style={{ color: '#FFF9E9' }}>{currentSceneName}{currentRoom.variantId ? ' (obra gris)' : ''}</strong>
+                {' · radarOffset '}
+                <strong style={{ color: '#FFF9E9' }}>
+                  {(radarOffsets[currentRoom.id] ?? currentRoom.radarOffset ?? 0)}°
+                </strong>
+                {' · yaw cámara '}{Math.round(viewerYaw)}{'° · ajusta con [ ]  (Shift = ±5°)'}
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 4 }}>
               {rooms.map((room) => {
                 const d = effectiveDot(room);
-                const edited = Boolean(debugOverrides[room.sceneId]);
+                const edited = Boolean(debugOverrides[room.id]);
                 return (
                   <div
-                    key={room.sceneId}
+                    key={room.id}
                     style={{
                       padding: '3px 6px', borderRadius: 3, fontSize: 10,
                       background: edited ? 'rgba(93,213,240,0.12)' : 'rgba(255,255,255,0.04)',
@@ -725,7 +801,7 @@ export default function FloorPlan() {
                     <span style={{ opacity: 0.85, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {room.label}
                     </span>
-                    <span style={{ color: edited ? '#5DD5F0' : 'rgba(232,217,176,0.65)', fontWeight: edited ? 700 : 400, whiteSpace: 'nowrap' }}>
+                    <span style={{ color: edited ? '#5DD5F0' : 'rgba(142, 104, 73,0.65)', fontWeight: edited ? 700 : 400, whiteSpace: 'nowrap' }}>
                       {d.dotX},{d.dotY}
                     </span>
                   </div>

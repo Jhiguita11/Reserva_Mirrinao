@@ -1,0 +1,3 @@
+VISTA SALA
+AGREGAR BURBUJA COMEDOR 
+pitch: -0.2, yaw: 2.4

@@ -16,7 +16,7 @@ export default function SceneSelector() {
 
   const scenes = selectedApartment?.scenes ?? [];
   const { brand } = config;
-  const primary = '#E8D9B0';
+  const primary = '#8E6849';
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape

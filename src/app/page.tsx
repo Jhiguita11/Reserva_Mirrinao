@@ -22,6 +22,7 @@ import { useTourKeyboard } from '@/lib/use-tour-keyboard';
 import { useSceneAnalytics } from '@/lib/use-scene-analytics';
 import { usePlayback } from '@/lib/use-playback';
 import { useInactivityPlayback } from '@/lib/use-inactivity-playback';
+import { useUiSound } from '@/lib/use-ui-sound';
 import type { HotspotConfig } from '@/lib/tour-types';
 
 const DebugPanel = process.env.NODE_ENV !== 'production'
@@ -46,6 +47,9 @@ export default function Home() {
 
   // Atajos de teclado para desktop
   useTourKeyboard(viewerRef);
+
+  // Sonido de clic en botones / enlaces
+  useUiSound();
 
   // Analytics de tiempo por escena
   useSceneAnalytics();

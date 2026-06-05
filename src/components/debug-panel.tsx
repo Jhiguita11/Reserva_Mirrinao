@@ -382,13 +382,13 @@ ${lines.join('\n')}
           left: 12,
           zIndex: 200,
           background: 'rgba(0,0,0,0.9)',
-          border: '1px solid rgba(232,217,176,0.35)',
+          border: '1px solid rgba(142, 104, 73,0.35)',
           borderRadius: 10,
           minWidth: collapsed ? 200 : 360,
           maxWidth: 420,
           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
           fontSize: 12,
-          color: '#E8D9B0',
+          color: '#FFF9E9',
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
           boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
@@ -402,7 +402,7 @@ ${lines.join('\n')}
             alignItems: 'center',
             gap: 6,
             padding: '8px 10px',
-            borderBottom: collapsed ? 'none' : '1px solid rgba(232,217,176,0.18)',
+            borderBottom: collapsed ? 'none' : '1px solid rgba(142, 104, 73,0.18)',
           }}
         >
           <button
@@ -436,8 +436,8 @@ ${lines.join('\n')}
                 style={{
                   flex: 0,
                   background: 'rgba(255,255,255,0.05)',
-                  color: '#E8D9B0',
-                  border: '1px solid rgba(232,217,176,0.25)',
+                  color: '#FFF9E9',
+                  border: '1px solid rgba(142, 104, 73,0.25)',
                   borderRadius: 4,
                   padding: '3px 4px',
                   fontSize: 10,
@@ -460,8 +460,8 @@ ${lines.join('\n')}
                 style={{
                   flex: 1,
                   background: 'rgba(255,255,255,0.05)',
-                  color: '#E8D9B0',
-                  border: '1px solid rgba(232,217,176,0.25)',
+                  color: '#FFF9E9',
+                  border: '1px solid rgba(142, 104, 73,0.25)',
                   borderRadius: 4,
                   padding: '3px 4px',
                   fontSize: 10,
@@ -485,7 +485,7 @@ ${lines.join('\n')}
             <div
               style={{
                 display: 'flex',
-                borderBottom: '1px solid rgba(232,217,176,0.18)',
+                borderBottom: '1px solid rgba(142, 104, 73,0.18)',
                 background: 'rgba(0,0,0,0.3)',
               }}
             >
@@ -505,8 +505,8 @@ ${lines.join('\n')}
                     fontSize: 10,
                     fontWeight: tab === t.id ? 700 : 500,
                     border: 'none',
-                    background: tab === t.id ? 'rgba(232,217,176,0.1)' : 'transparent',
-                    color: tab === t.id ? '#E8D9B0' : 'rgba(232,217,176,0.55)',
+                    background: tab === t.id ? 'rgba(142, 104, 73,0.1)' : 'transparent',
+                    color: tab === t.id ? '#8E6849' : 'rgba(142, 104, 73,0.55)',
                     cursor: 'pointer',
                     borderBottom: tab === t.id ? '2px solid #5DD5F0' : '2px solid transparent',
                     fontFamily: 'inherit',
@@ -529,7 +529,7 @@ ${lines.join('\n')}
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '8px 10px',
-                borderBottom: '1px solid rgba(232,217,176,0.18)',
+                borderBottom: '1px solid rgba(142, 104, 73,0.18)',
                 background: 'rgba(93,213,240,0.04)',
               }}
             >
@@ -619,9 +619,9 @@ ${lines.join('\n')}
                               style={{
                                 flex: 1,
                                 background: 'rgba(0,0,0,0.4)',
-                                border: '1px solid rgba(232,217,176,0.2)',
+                                border: '1px solid rgba(142, 104, 73,0.2)',
                                 borderRadius: 3,
-                                color: '#E8D9B0',
+                                color: '#FFF9E9',
                                 padding: '2px 5px',
                                 fontSize: 10,
                                 fontFamily: 'inherit',
@@ -652,9 +652,9 @@ ${lines.join('\n')}
                             style={{
                               width: '100%',
                               background: 'rgba(0,0,0,0.4)',
-                              border: '1px solid rgba(232,217,176,0.2)',
+                              border: '1px solid rgba(142, 104, 73,0.2)',
                               borderRadius: 3,
-                              color: '#E8D9B0',
+                              color: '#FFF9E9',
                               padding: '2px 5px',
                               fontSize: 10,
                               fontFamily: 'inherit',
@@ -729,7 +729,7 @@ ${lines.join('\n')}
                             <span
                               style={{
                                 fontSize: 9,
-                                color: aligned ? '#5DD5F0' : 'rgba(232,217,176,0.45)',
+                                color: aligned ? '#5DD5F0' : 'rgba(142, 104, 73,0.45)',
                                 minWidth: 32,
                                 textAlign: 'right',
                               }}
@@ -744,10 +744,10 @@ ${lines.join('\n')}
                               }}
                               title="Apuntar la camara al hotspot"
                               style={{
-                                background: 'rgba(232,217,176,0.1)',
-                                border: '1px solid rgba(232,217,176,0.25)',
+                                background: 'rgba(142, 104, 73,0.1)',
+                                border: '1px solid rgba(142, 104, 73,0.25)',
                                 borderRadius: 3,
-                                color: '#E8D9B0',
+                                color: '#FFF9E9',
                                 padding: '1px 6px',
                                 fontSize: 9,
                                 cursor: 'pointer',
@@ -800,7 +800,7 @@ ${lines.join('\n')}
                         style={{
                           marginTop: 10,
                           paddingTop: 8,
-                          borderTop: '1px solid rgba(232,217,176,0.18)',
+                          borderTop: '1px solid rgba(142, 104, 73,0.18)',
                         }}
                       >
                         <div
@@ -1054,7 +1054,7 @@ ${lines.join('\n')}
                                   ? '2px solid #FFC080'
                                   : '2px solid #888',
                             borderRadius: 3,
-                            color: '#E8D9B0',
+                            color: '#FFF9E9',
                             lineHeight: 1.4,
                           }}
                         >
@@ -1073,7 +1073,7 @@ ${lines.join('\n')}
                 fontSize: 9,
                 opacity: 0.4,
                 padding: '4px 10px 8px',
-                borderTop: '1px solid rgba(232,217,176,0.1)',
+                borderTop: '1px solid rgba(142, 104, 73,0.1)',
                 lineHeight: 1.4,
               }}
             >

@@ -6,11 +6,11 @@ import BrandLogo from '@/components/brand-logo';
 
 const BRAND = (path: string) => assetPath(`/projects/melendez/branding/${path}`);
 
-// Valle Alto palette — fondo sage oscuro profundo
-const BG    = '#1A2420'; // sage oscuro profundo
-const BEIGE = '#E8D9B0'; // arena/crema (logo natural)
-const SAGE  = '#8FA89A'; // sage claro (anillos)
-const LIMA  = '#C8CF6A'; // verde-lima (acento)
+// Paleta Reserva de Mirriñao — presentación sobre fondo claro (crema)
+const BG       = '#FFF9E9'; // crema
+const MARRON   = '#4B2C10'; // marrón oscuro (texto)
+const MOSTAZA  = '#CB9415'; // mostaza (acento)
+const CARAMELO = '#8E6849'; // caramelo (líneas/anillos)
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -47,90 +47,92 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
         pointerEvents: phase === 'exit' ? 'none' : 'all',
       }}
     >
-      {/* Ambient glow */}
+      {/* Ambient glow cálido */}
       <div style={{
         position: 'absolute',
         inset: 0,
-        background: `radial-gradient(ellipse at 50% 50%, ${SAGE}18 0%, transparent 60%)`,
+        background: `radial-gradient(ellipse at 50% 45%, ${CARAMELO}14 0%, transparent 60%)`,
         pointerEvents: 'none',
       }} />
 
       {/* Orbit rings */}
       <div style={{
         position: 'absolute',
-        width: 310,
-        height: 310,
+        width: 360,
+        height: 360,
         borderRadius: '50%',
-        border: `1px solid ${SAGE}60`,
+        border: `1px solid ${CARAMELO}33`,
         animation: 'splash-orbit 4s linear infinite',
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.8s ease 0.5s',
       }} />
       <div style={{
         position: 'absolute',
-        width: 245,
-        height: 245,
+        width: 290,
+        height: 290,
         borderRadius: '50%',
-        border: `1px solid ${SAGE}35`,
+        border: `1px solid ${CARAMELO}1F`,
         animation: 'splash-orbit 6s linear infinite reverse',
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.8s ease 0.7s',
       }} />
 
-      {/* Logo — centrado exacto */}
+      {/* Logo a color — centrado exacto */}
       <div style={{
         position: 'relative',
         zIndex: 2,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        transform: visible ? 'scale(1) translateY(0)' : 'scale(0.75) translateY(14px)',
+        transform: visible ? 'scale(1) translateY(0)' : 'scale(0.78) translateY(14px)',
         opacity: visible ? 1 : 0,
         transition: 'transform 0.9s cubic-bezier(0.34,1.56,0.64,1), opacity 0.7s ease',
       }}>
         <BrandLogo
+          mode="color"
+          variant="vertical"
           style={{
-            width: 160,
-            filter: `drop-shadow(0 0 14px ${BEIGE}28)`,
+            width: 230,
+            filter: 'drop-shadow(0 8px 24px rgba(75,44,16,0.18))',
           }}
         />
       </div>
 
-      {/* Tagline + progress — absoluto debajo del logo, no afecta centrado */}
+      {/* Tagline + progress — absoluto debajo del logo */}
       <div style={{
         position: 'absolute',
-        top: 'calc(50% + 172px)',
+        top: 'calc(50% + 188px)',
         left: 0,
         right: 0,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 10,
+        gap: 12,
         zIndex: 2,
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.6s ease 0.9s',
       }}>
         <div style={{
-          width: 130,
+          width: 140,
           height: 1.5,
-          background: `${LIMA}25`,
+          background: `${MOSTAZA}33`,
           borderRadius: 2,
           overflow: 'hidden',
         }}>
           <div style={{
             height: '100%',
-            background: `linear-gradient(90deg, transparent, ${LIMA}, transparent)`,
+            background: `linear-gradient(90deg, transparent, ${MOSTAZA}, transparent)`,
             transformOrigin: 'left center',
             animation: visible ? 'splash-progress 2.4s ease-out 0.3s both' : 'none',
           }} />
         </div>
         <p style={{
           margin: 0,
-          color: `${LIMA}AA`,
-          fontSize: 9,
-          letterSpacing: '0.30em',
+          color: CARAMELO,
+          fontSize: 10,
+          letterSpacing: '0.34em',
           textTransform: 'uppercase',
-          fontWeight: 500,
+          fontWeight: 600,
         }}>
           Recorrido Virtual 360°
         </p>
@@ -145,20 +147,29 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 20,
+        gap: 18,
         zIndex: 2,
         opacity: visible ? 1 : 0,
         transition: 'opacity 0.7s ease 1.1s',
       }}>
+        <span style={{
+          fontSize: 9,
+          letterSpacing: '0.26em',
+          textTransform: 'uppercase',
+          color: `${MARRON}99`,
+          fontWeight: 600,
+        }}>
+          Un proyecto de
+        </span>
         <img
           src={BRAND('LogoMelendezHorizontal.png')}
           alt="Constructora Meléndez"
-          style={{ height: 24, width: 'auto', objectFit: 'contain' }}
+          style={{ height: 26, width: 'auto', objectFit: 'contain' }}
           draggable={false}
         />
-        <div style={{ width: 1, height: 18, background: `${BEIGE}25` }} />
+        <div style={{ width: 1, height: 18, background: `${CARAMELO}40` }} />
         <img
-          src={BRAND('MIES LOGO_Horizontal Blanco.png')}
+          src={BRAND('MIES LOGO_Horizontal Negro.png')}
           alt="MIESGROUP"
           style={{ height: 20, width: 'auto', objectFit: 'contain' }}
           draggable={false}

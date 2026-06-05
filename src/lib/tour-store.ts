@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import tourConfig from '@/projects/melendez/valle-alto/tour.config';
+import tourConfig from '@/projects/melendez/mirrinao/tour.config';
 import type { ApartmentConfig } from './tour-types';
 
 interface TourState {
