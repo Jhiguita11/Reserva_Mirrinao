@@ -1,11 +1,11 @@
-// Servidor estático para probar el build (out/) con basePath /reserva_mirrinao.
+// Servidor estático para probar el build (out/) con basePath /Reserva_Mirrinao.
 import { createServer } from 'http';
 import { readFile, stat } from 'fs/promises';
 import { join, extname } from 'path';
 
 const ROOT = join(process.cwd(), 'out');
 const PORT = 4000;
-const PREFIX = '/reserva_mirrinao';
+const PREFIX = '/Reserva_Mirrinao';
 
 const TYPES = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
