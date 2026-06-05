@@ -21,7 +21,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTourStore } from '@/lib/tour-store';
 import type { HotspotConfig, SceneConfig, ApartmentConfig, PlaybackAnimation } from '@/lib/tour-types';
-import { panDurationMs, transitionDurationMs, PLAYBACK_HFOV } from '@/lib/playback-utils';
+import {
+  panDurationMs,
+  transitionDurationMs,
+  PLAYBACK_HFOV,
+  PAN_SPEED,
+  TRANSITION_SPEED,
+  STATIC_HOLD_MS,
+} from '@/lib/playback-utils';
 
 type PanoHandle = {
   getPitch: () => number;
@@ -103,6 +110,16 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
   const [pendingFrom, setPendingFrom] = useState<{ pitch: number; yaw: number } | null>(null);
   const previewRef = useRef(false);
   const [previewing, setPreviewing] = useState(false);
+
+  // Ajustes de velocidad/HFOV del modo reproducción (afectan la preview y se
+  // exportan como bloque `playback` para pegar en tour.config.ts). Por defecto
+  // toman lo que ya haya en config.playback, o los valores base.
+  const [pbSettings, setPbSettings] = useState(() => ({
+    panSpeed: config.playback?.panSpeed ?? PAN_SPEED,
+    transitionSpeed: config.playback?.transitionSpeed ?? TRANSITION_SPEED,
+    staticHoldMs: config.playback?.staticHoldMs ?? STATIC_HOLD_MS,
+    hfov: config.playback?.hfov ?? PLAYBACK_HFOV,
+  }));
 
   // Reset drafts (hotspots/variante) al cambiar de escena. Los playbackDrafts NO
   // se borran (son acumulativos por escena); solo limpiamos el FROM pendiente.
@@ -240,20 +257,21 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
     previewRef.current = true;
     setPreviewing(true);
     const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
+    const hf = pbSettings.hfov;
     try {
-      v.lookAt(anims[0].from.pitch, anims[0].from.yaw, PLAYBACK_HFOV, 600);
+      v.lookAt(anims[0].from.pitch, anims[0].from.yaw, hf, 600);
       await wait(650);
       for (let i = 0; i < anims.length; i++) {
         if (!previewRef.current) return;
         const a = anims[i];
-        const panMs = panDurationMs(a);
-        v.lookAt(a.to.pitch, a.to.yaw, PLAYBACK_HFOV, panMs);
+        const panMs = panDurationMs(a, pbSettings);
+        v.lookAt(a.to.pitch, a.to.yaw, hf, panMs);
         await wait(panMs);
         const next = anims[i + 1];
         if (next) {
           if (!previewRef.current) return;
-          const tMs = transitionDurationMs(a.to, next.from);
-          v.lookAt(next.from.pitch, next.from.yaw, PLAYBACK_HFOV, tMs);
+          const tMs = transitionDurationMs(a.to, next.from, pbSettings);
+          v.lookAt(next.from.pitch, next.from.yaw, hf, tMs);
           await wait(tMs);
         }
       }
@@ -261,7 +279,7 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
       previewRef.current = false;
       setPreviewing(false);
     }
-  }, [viewerHandle, playbackDrafts, currentSceneId]);
+  }, [viewerHandle, playbackDrafts, currentSceneId, pbSettings]);
 
   const stopPreview = useCallback(() => {
     previewRef.current = false;
@@ -279,6 +297,12 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
       .join('\n');
     return `// ${currentScene?.name ?? currentSceneId}\n      playbackAnimations: [\n${lines}\n      ],`;
   }, [playbackDrafts, currentSceneId, currentScene]);
+
+  // Bloque `playback` (velocidades/HFOV) para pegar en la raíz de tour.config.ts.
+  const exportPlaybackSettings = useCallback(() => {
+    const { panSpeed, transitionSpeed, staticHoldMs, hfov } = pbSettings;
+    return `  playback: { panSpeed: ${panSpeed}, transitionSpeed: ${transitionSpeed}, staticHoldMs: ${staticHoldMs}, hfov: ${hfov} },`;
+  }, [pbSettings]);
 
   const exportPlaybackAll = useCallback(() => {
     const entries = Object.entries(playbackDrafts).filter(([, a]) => a.length);
@@ -1072,6 +1096,54 @@ ${lines.join('\n')}
                     panea <i>from→to</i> y transiciona al siguiente.
                   </div>
 
+                  {/* Ajustes de velocidad / HFOV — afectan preview + export */}
+                  <div
+                    style={{
+                      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(142, 104, 73,0.18)',
+                      borderRadius: 5, padding: 6, marginBottom: 8,
+                    }}
+                  >
+                    <div style={{ fontSize: 9, opacity: 0.55, letterSpacing: 1, marginBottom: 6 }}>
+                      VELOCIDAD / HFOV (preview + export)
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                      {([
+                        ['Pan °/s', 'panSpeed', 1, 40, 1],
+                        ['Transición °/s', 'transitionSpeed', 2, 80, 1],
+                        ['Toma fija (ms)', 'staticHoldMs', 500, 8000, 100],
+                        ['HFOV', 'hfov', 60, 150, 1],
+                      ] as const).map(([label, key, min, max, step]) => (
+                        <label
+                          key={key}
+                          style={{ fontSize: 9, opacity: 0.85, display: 'flex', flexDirection: 'column', gap: 2 }}
+                        >
+                          <span>
+                            {label}: <b style={{ color: '#5DD5F0' }}>{pbSettings[key]}</b>
+                          </span>
+                          <input
+                            type="range"
+                            min={min}
+                            max={max}
+                            step={step}
+                            value={pbSettings[key]}
+                            onChange={(e) => setPbSettings((s) => ({ ...s, [key]: Number(e.target.value) }))}
+                            style={{ width: '100%', accentColor: '#5DD5F0' }}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => copy(exportPlaybackSettings(), 'pb-settings')}
+                      style={{
+                        width: '100%', marginTop: 6, padding: '5px 8px', fontSize: 10, fontWeight: 700,
+                        background: 'rgba(93,213,240,0.14)', border: '1px solid rgba(93,213,240,0.4)',
+                        borderRadius: 4, color: '#5DD5F0', cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      {copied === 'pb-settings' ? '✓ ajustes copiados' : 'Copiar ajustes (bloque playback)'}
+                    </button>
+                  </div>
+
                   {/* Autogenerar + toma estática */}
                   <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
                     <button
@@ -1174,7 +1246,7 @@ ${lines.join('\n')}
                               )}
                             </span>
                             <button
-                              onClick={() => { try { viewerHandle.current?.lookAt?.(a.from.pitch, a.from.yaw, PLAYBACK_HFOV, 400); } catch {} }}
+                              onClick={() => { try { viewerHandle.current?.lookAt?.(a.from.pitch, a.from.yaw, pbSettings.hfov, 400); } catch {} }}
                               title="Apuntar al inicio de este tramo"
                               style={{
                                 background: 'rgba(142, 104, 73,0.12)', border: '1px solid rgba(142, 104, 73,0.25)',

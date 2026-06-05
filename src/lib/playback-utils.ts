@@ -1,6 +1,6 @@
-import type { PlaybackAnimation } from './tour-types';
+import type { PlaybackAnimation, PlaybackSettings } from './tour-types';
 
-// ── Parámetros de movimiento ──────────────────────────────────────
+// ── Parámetros de movimiento (valores por defecto) ────────────────
 /** Velocidad del pan principal (recorrido de la escena) en °/s. Lento = contemplativo. */
 export const PAN_SPEED = 9;
 /** Velocidad de la transición de conexión entre animaciones en °/s. Más ágil. */
@@ -36,33 +36,41 @@ function moveMagnitude(
 }
 
 /** Duración del pan principal de una animación, a velocidad constante. */
-export function panDurationMs(anim: PlaybackAnimation): number {
+export function panDurationMs(anim: PlaybackAnimation, s?: PlaybackSettings): number {
   const deg = moveMagnitude(anim.from, anim.to);
-  if (deg < 1) return STATIC_HOLD_MS; // toma estática
-  return Math.max(PAN_MIN_MS, Math.min(PAN_MAX_MS, (deg / PAN_SPEED) * 1000));
+  if (deg < 1) return s?.staticHoldMs ?? STATIC_HOLD_MS; // toma estática
+  const speed = s?.panSpeed ?? PAN_SPEED;
+  return Math.max(PAN_MIN_MS, Math.min(PAN_MAX_MS, (deg / speed) * 1000));
 }
 
 /** Duración de la transición de conexión entre el `to` de una y el `from` de la siguiente. */
 export function transitionDurationMs(
   fromTo: { pitch: number; yaw: number },
   nextFrom: { pitch: number; yaw: number },
+  s?: PlaybackSettings,
 ): number {
   const deg = moveMagnitude(fromTo, nextFrom);
   if (deg < 1) return 0; // no hay que moverse
-  return Math.max(TRANS_MIN_MS, Math.min(TRANS_MAX_MS, (deg / TRANSITION_SPEED) * 1000));
+  const speed = s?.transitionSpeed ?? TRANSITION_SPEED;
+  return Math.max(TRANS_MIN_MS, Math.min(TRANS_MAX_MS, (deg / speed) * 1000));
 }
 
 /** Tiempo total que una escena permanece activa en modo reproducción. */
-export function sceneTotalMs(anims: PlaybackAnimation[]): number {
+export function sceneTotalMs(anims: PlaybackAnimation[], s?: PlaybackSettings): number {
   if (!anims.length) return 7000;
   let total = 0;
   for (let i = 0; i < anims.length; i++) {
-    total += panDurationMs(anims[i]);
+    total += panDurationMs(anims[i], s);
     if (i < anims.length - 1) {
-      total += transitionDurationMs(anims[i].to, anims[i + 1].from);
+      total += transitionDurationMs(anims[i].to, anims[i + 1].from, s);
     }
   }
   return total;
+}
+
+/** Resuelve el HFOV de reproducción desde los ajustes (o el valor por defecto). */
+export function playbackHfov(s?: PlaybackSettings): number {
+  return s?.hfov ?? PLAYBACK_HFOV;
 }
 
 /** Ease-in-out cuadrático — suave para el pan principal. */

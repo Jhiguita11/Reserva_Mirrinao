@@ -14,6 +14,7 @@ export function usePlayback() {
   const currentSceneId    = useTourStore((s) => s.currentSceneId);
   const currentSceneIndex = useTourStore((s) => s.currentSceneIndex);
   const selectedApartment = useTourStore((s) => s.selectedApartment);
+  const playbackSettings  = useTourStore((s) => s.config.playback);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -24,7 +25,7 @@ export function usePlayback() {
     const anims = scene?.playbackAnimations ?? [];
 
     // Tiempo de las animaciones + margen para el crossfade de entrada de la escena
-    const total = sceneTotalMs(anims) + PLAYBACK_LEAD_IN;
+    const total = sceneTotalMs(anims, playbackSettings) + PLAYBACK_LEAD_IN;
 
     timerRef.current = setTimeout(() => {
       const store = useTourStore.getState();
@@ -35,5 +36,5 @@ export function usePlayback() {
     }, total);
 
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [isPlaybackMode, currentSceneId, currentSceneIndex, selectedApartment]);
+  }, [isPlaybackMode, currentSceneId, currentSceneIndex, selectedApartment, playbackSettings]);
 }

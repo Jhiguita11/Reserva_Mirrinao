@@ -183,11 +183,27 @@ export interface GalleryImageConfig {
   caption?: string;
 }
 
+// Ajustes globales del modo reproducción (velocidades, holds, HFOV).
+// Todos opcionales: si se omiten, se usan los valores por defecto de
+// playback-utils.ts. Calibrables en vivo desde la pestaña Playback de ?debug=1.
+export interface PlaybackSettings {
+  /** Velocidad del paneo principal en °/s (menor = más contemplativo). */
+  panSpeed?: number;
+  /** Velocidad de la transición entre tramos en °/s. */
+  transitionSpeed?: number;
+  /** Duración de una toma estática (from == to) en ms. */
+  staticHoldMs?: number;
+  /** HFOV usado durante el modo reproducción. */
+  hfov?: number;
+}
+
 export interface TourConfig {
   brand: BrandConfig;
   theme: ThemeConfig;
   /** Buildings with apartments */
   buildings: BuildingConfig[];
+  /** Ajustes globales del modo reproducción (velocidad, holds, HFOV). */
+  playback?: PlaybackSettings;
   /** Auto-rotate speed (0 = off, negative = clockwise) */
   autoRotateSpeed: number;
   /** Show floor plan by default */

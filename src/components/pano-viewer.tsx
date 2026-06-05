@@ -431,6 +431,8 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
     const autoRotate = useTourStore((s) => s.autoRotate);
     const autoRotateSpeed = useTourStore((s) => s.config.autoRotateSpeed);
     const isPlaybackMode = useTourStore((s) => s.isPlaybackMode);
+    const playbackSettings = useTourStore((s) => s.config.playback);
+    const pbHfov = playbackSettings?.hfov ?? PLAYBACK_HFOV;
     const setTransitioning = useTourStore((s) => s.setTransitioning);
     const setViewerYaw = useTourStore((s) => s.setViewerYaw);
     const themePrimary = useTourStore((s) => s.config.theme.primary);
@@ -606,8 +608,12 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
           pitch: initialView?.pitch ?? 0,
           yaw: initialView?.yaw ?? 0,
           // Playback: HFOV amplio para mostrar el mayor espacio posible
-          hfov: isPlaybackMode ? PLAYBACK_HFOV : (initialView?.hfov ?? 100),
-          maxHfov: isPlaybackMode ? 150 : 120,
+          hfov: isPlaybackMode ? pbHfov : (initialView?.hfov ?? 100),
+          // maxHfov debe permitir el HFOV de reproducción aunque el viewer se
+          // haya construido en vista normal (al entrar a reproducción NO se
+          // reconstruye; los efectos hacen setHfov en caliente y pannellum lo
+          // recorta a maxHfov). Por eso lo dejamos siempre >= pbHfov.
+          maxHfov: Math.max(120, pbHfov + 10),
           // Playback: sin autoRotate — la animación lookAt es más cinematográfica
           autoRotate: debugEnabled ? 0 : (isPlaybackMode ? 0 : (autoRotate ? autoRotateSpeed : 0)),
           autoRotateInactivityDelay: debugEnabled ? 0 : (autoRotate && !isPlaybackMode ? 2000 : 0),
@@ -847,6 +853,24 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
       },
     }));
 
+    /* ── HFOV del modo reproducción ────────────────────────────────
+       Forzar HFOV = PLAYBACK_HFOV al entrar a reproducción, aunque la escena
+       no tenga animaciones (el efecto de animaciones sale antes si no hay, así
+       que sin esto el HFOV se quedaba en el de la vista normal). Al salir,
+       restaurar el HFOV de la vista por defecto de la escena actual. */
+    useEffect(() => {
+      const v = viewerRef.current;
+      if (!v) return;
+      try {
+        if (isPlaybackMode) {
+          v.setHfov?.(pbHfov, true);
+        } else {
+          const sc = scenes.find((s) => s.id === currentSceneId);
+          v.setHfov?.(sc?.defaultView?.hfov ?? 100, true);
+        }
+      } catch { /* ignore */ }
+    }, [isPlaybackMode, pbHfov]); // eslint-disable-line react-hooks/exhaustive-deps
+
     /* ── Yaw polling → floor plan radar ───────────────────────── */
     useEffect(() => {
       const interval = setInterval(() => {
@@ -877,7 +901,6 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
 
       const scene = scenes.find((s) => s.id === currentSceneId);
       const animations = scene?.playbackAnimations ?? [];
-      if (!animations.length) return;
 
       /* Pan suave entre dos posiciones usando rAF. */
       const smoothPan = (
@@ -919,7 +942,7 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
         smoothPan(
           anim.from.pitch, anim.from.yaw,
           anim.to.pitch,   anim.to.yaw,
-          panDurationMs(anim),
+          panDurationMs(anim, playbackSettings),
           easeInOutQuad,
           () => {
             const next = animations[idx + 1];
@@ -927,7 +950,7 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
             smoothPan(
               anim.to.pitch, anim.to.yaw,
               next.from.pitch, next.from.yaw,
-              transitionDurationMs(anim.to, next.from),
+              transitionDurationMs(anim.to, next.from, playbackSettings),
               easeInOutCubic,
               () => runSequence(idx + 1),
             );
@@ -935,12 +958,15 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
         );
       };
 
-      // Esperar a que el viewer exista, fijar el FROM inicial y arrancar
+      // Esperar a que el viewer exista. SIEMPRE fijamos el HFOV de reproducción
+      // (haya o no animaciones — antes salía antes y el HFOV quedaba en el normal);
+      // si hay animaciones, fijamos el FROM inicial y arrancamos la secuencia.
       const waitForViewer = setInterval(() => {
         if (viewerRef.current) {
           clearInterval(waitForViewer);
+          try { (viewerRef.current as any)?.setHfov?.(pbHfov, false); } catch { /* ignore */ }
+          if (!animations.length) return;
           try {
-            (viewerRef.current as any)?.setHfov?.(PLAYBACK_HFOV, false);
             (viewerRef.current as any)?.setPitch?.(animations[0].from.pitch, false);
             (viewerRef.current as any)?.setYaw?.(animations[0].from.yaw, false);
           } catch { /* ignore */ }
