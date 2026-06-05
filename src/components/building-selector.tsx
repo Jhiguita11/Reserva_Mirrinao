@@ -70,6 +70,15 @@ export default function BuildingSelector() {
     }
   }, []);
 
+  // Reset: descarta el override y vuelve a la posición original del config.
+  const resetHotspot = useCallback((aptId: string) => {
+    setOverrides((prev) => {
+      const next = { ...prev };
+      delete next[aptId];
+      return next;
+    });
+  }, []);
+
   const buildings = config.buildings;
   if (!buildings.length) return null;
 
@@ -136,6 +145,7 @@ export default function BuildingSelector() {
               isDragging={dragId === apt.id}
               onDragStart={() => setDragId(apt.id)}
               onCopy={(x, y) => copyHotspot(apt.id, x, y)}
+              onReset={() => resetHotspot(apt.id)}
               copied={copied === apt.id}
             />
           );
@@ -178,7 +188,7 @@ export default function BuildingSelector() {
 // ═══════════════════════════════════════════════════════════════════
 function BuildingHotspot({
   apt, building, available, isHovered, onHover, onLeave, onClick,
-  debugEnabled = false, override, isDragging = false, onDragStart, onCopy, copied = false,
+  debugEnabled = false, override, isDragging = false, onDragStart, onCopy, onReset, copied = false,
 }: {
   apt: ApartmentConfig;
   building: BuildingConfig;
@@ -192,6 +202,7 @@ function BuildingHotspot({
   isDragging?: boolean;
   onDragStart?: () => void;
   onCopy?: (x: number, y: number) => void;
+  onReset?: () => void;
   copied?: boolean;
 }) {
   const floors = building.floors;
@@ -405,6 +416,25 @@ function BuildingHotspot({
           >
             {copied ? '✓' : 'copiar'}
           </button>
+          {override && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onReset?.(); }}
+              title="Volver a la posición original del config"
+              style={{
+                padding: '2px 8px',
+                fontSize: 10,
+                fontWeight: 700,
+                background: 'rgba(255,180,80,0.15)',
+                border: '1px solid rgba(255,180,80,0.45)',
+                borderRadius: 4,
+                color: '#FFC080',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              ↺ reset
+            </button>
+          )}
         </div>
       )}
 
