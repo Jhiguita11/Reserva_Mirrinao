@@ -20,13 +20,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTourStore } from '@/lib/tour-store';
-import type { HotspotConfig, SceneConfig, ApartmentConfig } from '@/lib/tour-types';
+import type { HotspotConfig, SceneConfig, ApartmentConfig, PlaybackAnimation } from '@/lib/tour-types';
+import { panDurationMs, transitionDurationMs, PLAYBACK_HFOV } from '@/lib/playback-utils';
 
 type PanoHandle = {
   getPitch: () => number;
   getYaw: () => number;
   getHfov: () => number;
-  lookAt?: (pitch?: number, yaw?: number, hfov?: number) => void;
+  lookAt?: (pitch?: number, yaw?: number, hfov?: number, speed?: number) => void;
 };
 
 interface DebugPanelProps {
@@ -34,7 +35,7 @@ interface DebugPanelProps {
   viewerHandle: React.RefObject<PanoHandle | null>;
 }
 
-type Tab = 'hotspots' | 'variants' | 'plan' | 'export' | 'check';
+type Tab = 'hotspots' | 'variants' | 'plan' | 'playback' | 'export' | 'check';
 
 interface DraftHotspot {
   id: string;
@@ -96,10 +97,21 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
     null,
   );
 
-  // Reset drafts al cambiar de escena
+  // Keyframes de reproducción por escena (persisten al cambiar de escena para
+  // poder construir las 10 sin perder trabajo). Clave = sceneId.
+  const [playbackDrafts, setPlaybackDrafts] = useState<Record<string, PlaybackAnimation[]>>({});
+  const [pendingFrom, setPendingFrom] = useState<{ pitch: number; yaw: number } | null>(null);
+  const previewRef = useRef(false);
+  const [previewing, setPreviewing] = useState(false);
+
+  // Reset drafts (hotspots/variante) al cambiar de escena. Los playbackDrafts NO
+  // se borran (son acumulativos por escena); solo limpiamos el FROM pendiente.
   useEffect(() => {
     setDrafts([]);
     setDraftVariantBtn(null);
+    setPendingFrom(null);
+    previewRef.current = false;
+    setPreviewing(false);
   }, [currentSceneId]);
 
   /* ── Atajos de teclado ─────────────────────────────────────── */
@@ -158,6 +170,132 @@ export default function DebugPanel({ viewerHandle }: DebugPanelProps) {
     if (!coords) return;
     setDraftVariantBtn({ pitch: coords.pitch, yaw: coords.yaw });
   }, [coords]);
+
+  /* ── Playback: captura de keyframes ─────────────────────────── */
+  const pbAnims = playbackDrafts[currentSceneId] ?? [];
+
+  // Marca la posición actual del crosshair como INICIO (from) del próximo tramo.
+  const markFrom = useCallback(() => {
+    if (coords) setPendingFrom({ pitch: coords.pitch, yaw: coords.yaw });
+  }, [coords]);
+
+  // Agrega un tramo from→to: el from es el marcado (o, si no hay, una toma
+  // estática mirando aquí). El to es la posición actual del crosshair.
+  const addSegment = useCallback(() => {
+    if (!coords) return;
+    const to = { pitch: coords.pitch, yaw: coords.yaw };
+    const from = pendingFrom ?? to;
+    setPlaybackDrafts((prev) => ({
+      ...prev,
+      [currentSceneId]: [...(prev[currentSceneId] ?? []), { from, to }],
+    }));
+    setPendingFrom(null);
+  }, [coords, pendingFrom, currentSceneId]);
+
+  // Toma estática: mira hacia aquí y se mantiene (from == to).
+  const addStaticHold = useCallback(() => {
+    if (!coords) return;
+    const p = { pitch: coords.pitch, yaw: coords.yaw };
+    setPlaybackDrafts((prev) => ({
+      ...prev,
+      [currentSceneId]: [...(prev[currentSceneId] ?? []), { from: p, to: p }],
+    }));
+  }, [coords, currentSceneId]);
+
+  // Genera el recorrido "hacia las salidas": una toma estática mirando cada
+  // hotspot de la escena, ordenadas por yaw para un barrido natural. Las
+  // transiciones entre tomas las hace el motor de reproducción.
+  const genFromExits = useCallback(() => {
+    if (!currentScene) return;
+    const hs = currentScene.hotspots ?? [];
+    if (!hs.length) return;
+    const r1 = (n: number) => Math.round(n * 10) / 10;
+    const sorted = [...hs].sort((a, b) => a.yaw - b.yaw);
+    const anims: PlaybackAnimation[] = sorted.map((h) => ({
+      from: { pitch: r1(h.pitch), yaw: r1(h.yaw) },
+      to: { pitch: r1(h.pitch), yaw: r1(h.yaw) },
+    }));
+    setPlaybackDrafts((prev) => ({ ...prev, [currentSceneId]: anims }));
+  }, [currentScene, currentSceneId]);
+
+  const removeLastSegment = useCallback(() => {
+    setPlaybackDrafts((prev) => ({
+      ...prev,
+      [currentSceneId]: (prev[currentSceneId] ?? []).slice(0, -1),
+    }));
+  }, [currentSceneId]);
+
+  const clearSceneAnims = useCallback(() => {
+    setPlaybackDrafts((prev) => ({ ...prev, [currentSceneId]: [] }));
+    setPendingFrom(null);
+  }, [currentSceneId]);
+
+  // Previsualiza el recorrido de la escena actual usando lookAt (sin tocar el
+  // motor global). Replica la semántica: fija el from, panea al to, transiciona
+  // al from del siguiente, etc.
+  const previewPlayback = useCallback(async () => {
+    const v = viewerHandle.current;
+    const anims = playbackDrafts[currentSceneId] ?? [];
+    if (!v?.lookAt || !anims.length) return;
+    previewRef.current = true;
+    setPreviewing(true);
+    const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
+    try {
+      v.lookAt(anims[0].from.pitch, anims[0].from.yaw, PLAYBACK_HFOV, 600);
+      await wait(650);
+      for (let i = 0; i < anims.length; i++) {
+        if (!previewRef.current) return;
+        const a = anims[i];
+        const panMs = panDurationMs(a);
+        v.lookAt(a.to.pitch, a.to.yaw, PLAYBACK_HFOV, panMs);
+        await wait(panMs);
+        const next = anims[i + 1];
+        if (next) {
+          if (!previewRef.current) return;
+          const tMs = transitionDurationMs(a.to, next.from);
+          v.lookAt(next.from.pitch, next.from.yaw, PLAYBACK_HFOV, tMs);
+          await wait(tMs);
+        }
+      }
+    } finally {
+      previewRef.current = false;
+      setPreviewing(false);
+    }
+  }, [viewerHandle, playbackDrafts, currentSceneId]);
+
+  const stopPreview = useCallback(() => {
+    previewRef.current = false;
+    setPreviewing(false);
+  }, []);
+
+  const exportPlaybackScene = useCallback(() => {
+    const anims = playbackDrafts[currentSceneId] ?? [];
+    if (!anims.length) return '// (sin tramos) — captura o genera algunos primero';
+    const lines = anims
+      .map(
+        (a) =>
+          `        { from: { pitch: ${a.from.pitch}, yaw: ${a.from.yaw} }, to: { pitch: ${a.to.pitch}, yaw: ${a.to.yaw} } },`,
+      )
+      .join('\n');
+    return `// ${currentScene?.name ?? currentSceneId}\n      playbackAnimations: [\n${lines}\n      ],`;
+  }, [playbackDrafts, currentSceneId, currentScene]);
+
+  const exportPlaybackAll = useCallback(() => {
+    const entries = Object.entries(playbackDrafts).filter(([, a]) => a.length);
+    if (!entries.length) return '// (no hay animaciones capturadas en ninguna escena)';
+    return entries
+      .map(([sid, anims]) => {
+        const name = selectedApartment?.scenes.find((s) => s.id === sid)?.name ?? sid;
+        const lines = anims
+          .map(
+            (a) =>
+              `  { from: { pitch: ${a.from.pitch}, yaw: ${a.from.yaw} }, to: { pitch: ${a.to.pitch}, yaw: ${a.to.yaw} } },`,
+          )
+          .join('\n');
+        return `// ${name} (${sid})\nplaybackAnimations: [\n${lines}\n],`;
+      })
+      .join('\n\n');
+  }, [playbackDrafts, selectedApartment]);
 
   /* ── Validacion de conexiones ──────────────────────────────── */
   const validation = useMemo(() => {
@@ -493,6 +631,7 @@ ${lines.join('\n')}
                 { id: 'hotspots' as Tab, label: 'Hotspots', count: (currentScene?.hotspots.length ?? 0) + drafts.length },
                 { id: 'variants' as Tab, label: 'Variante', count: currentScene?.variants?.length ?? 0 },
                 { id: 'plan' as Tab, label: 'Floor', count: selectedApartment?.floorPlan?.rooms?.length ?? 0 },
+                { id: 'playback' as Tab, label: 'Playback', count: pbAnims.length },
                 { id: 'export' as Tab, label: 'Export' },
                 { id: 'check' as Tab, label: 'Check', count: validation?.issues.length ?? 0 },
               ].map((t) => (
@@ -922,6 +1061,186 @@ ${lines.join('\n')}
                       </span>
                     </div>
                   ))}
+                </>
+              )}
+
+              {tab === 'playback' && (
+                <>
+                  <div style={{ fontSize: 10, opacity: 0.7, lineHeight: 1.5, marginBottom: 8 }}>
+                    Recorrido <b style={{ color: '#5DD5F0' }}>hacia las salidas</b>. Apunta la cámara
+                    (arrastra) y captura tramos, o genera uno automático desde los hotspots. El motor
+                    panea <i>from→to</i> y transiciona al siguiente.
+                  </div>
+
+                  {/* Autogenerar + toma estática */}
+                  <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+                    <button
+                      onClick={genFromExits}
+                      title="Crea una toma por cada salida (hotspot), ordenadas por yaw"
+                      style={{
+                        flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700,
+                        background: 'rgba(93,213,240,0.18)', border: '1px solid rgba(93,213,240,0.5)',
+                        borderRadius: 5, color: '#5DD5F0', cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      ⚡ Generar desde salidas
+                    </button>
+                    <button
+                      onClick={addStaticHold}
+                      title="Agrega una toma estática mirando hacia el crosshair"
+                      style={{
+                        padding: '6px 8px', fontSize: 10, fontWeight: 700,
+                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(142, 104, 73,0.3)',
+                        borderRadius: 5, color: '#FFF9E9', cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      + estática
+                    </button>
+                  </div>
+
+                  {/* Captura from → to */}
+                  <div
+                    style={{
+                      display: 'flex', gap: 4, marginBottom: 6, padding: 6,
+                      background: 'rgba(255,255,255,0.03)', borderRadius: 5,
+                      border: '1px solid rgba(142, 104, 73,0.18)',
+                    }}
+                  >
+                    <button
+                      onClick={markFrom}
+                      title="Marca la vista actual como inicio del tramo"
+                      style={{
+                        flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700,
+                        background: pendingFrom ? 'rgba(93,213,240,0.28)' : 'rgba(93,213,240,0.12)',
+                        border: '1px dashed rgba(93,213,240,0.5)', borderRadius: 4,
+                        color: '#5DD5F0', cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      {pendingFrom ? `FROM ✓ (y:${pendingFrom.yaw})` : '① Marcar inicio'}
+                    </button>
+                    <button
+                      onClick={addSegment}
+                      title="Agrega el tramo desde el inicio marcado hasta la vista actual"
+                      style={{
+                        flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700,
+                        background: 'rgba(93,213,240,0.12)', border: '1px dashed rgba(93,213,240,0.5)',
+                        borderRadius: 4, color: '#5DD5F0', cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      ② Agregar tramo → aquí
+                    </button>
+                  </div>
+
+                  {/* Preview / stop */}
+                  <button
+                    onClick={previewing ? stopPreview : previewPlayback}
+                    disabled={!pbAnims.length}
+                    style={{
+                      width: '100%', padding: '7px 10px', fontSize: 11, fontWeight: 700,
+                      background: previewing ? 'rgba(255,120,120,0.18)' : 'rgba(80,200,120,0.18)',
+                      border: previewing ? '1px solid rgba(255,120,120,0.5)' : '1px solid rgba(80,200,120,0.5)',
+                      borderRadius: 5, color: previewing ? '#FF9090' : '#80E090',
+                      cursor: pbAnims.length ? 'pointer' : 'not-allowed', opacity: pbAnims.length ? 1 : 0.4,
+                      fontFamily: 'inherit', marginBottom: 8,
+                    }}
+                  >
+                    {previewing ? '■ Detener preview' : '▶ Previsualizar recorrido'}
+                  </button>
+
+                  {/* Lista de tramos */}
+                  {pbAnims.length > 0 ? (
+                    <>
+                      <div style={{ fontSize: 9, opacity: 0.55, letterSpacing: 1, marginBottom: 4 }}>
+                        TRAMOS ({pbAnims.length})
+                      </div>
+                      {pbAnims.map((a, i) => {
+                        const isStatic =
+                          Math.abs(a.from.yaw - a.to.yaw) < 1 && Math.abs(a.from.pitch - a.to.pitch) < 1;
+                        return (
+                          <div
+                            key={i}
+                            style={{
+                              background: 'rgba(255,255,255,0.04)', borderRadius: 4, padding: '4px 7px',
+                              marginBottom: 3, fontSize: 10, display: 'flex', gap: 6,
+                              alignItems: 'center', justifyContent: 'space-between',
+                            }}
+                          >
+                            <span style={{ opacity: 0.5, minWidth: 16 }}>{i + 1}</span>
+                            <span style={{ flex: 1, fontSize: 9 }}>
+                              {isStatic ? (
+                                <>mira <b>y:{a.to.yaw}</b> p:{a.to.pitch}</>
+                              ) : (
+                                <>y:{a.from.yaw}→<b>{a.to.yaw}</b> · p:{a.from.pitch}→{a.to.pitch}</>
+                              )}
+                            </span>
+                            <button
+                              onClick={() => { try { viewerHandle.current?.lookAt?.(a.from.pitch, a.from.yaw, PLAYBACK_HFOV, 400); } catch {} }}
+                              title="Apuntar al inicio de este tramo"
+                              style={{
+                                background: 'rgba(142, 104, 73,0.12)', border: '1px solid rgba(142, 104, 73,0.25)',
+                                borderRadius: 3, color: '#FFF9E9', padding: '1px 6px', fontSize: 9,
+                                cursor: 'pointer', fontFamily: 'inherit',
+                              }}
+                            >
+                              go
+                            </button>
+                          </div>
+                        );
+                      })}
+                      <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                        <button
+                          onClick={removeLastSegment}
+                          style={{
+                            flex: 1, padding: '5px 8px', fontSize: 10, background: 'rgba(255,180,80,0.12)',
+                            border: '1px solid rgba(255,180,80,0.4)', borderRadius: 4, color: '#FFC080',
+                            cursor: 'pointer', fontFamily: 'inherit',
+                          }}
+                        >
+                          ↶ Quitar último
+                        </button>
+                        <button
+                          onClick={clearSceneAnims}
+                          style={{
+                            flex: 1, padding: '5px 8px', fontSize: 10, background: 'rgba(255,80,80,0.12)',
+                            border: '1px solid rgba(255,80,80,0.4)', borderRadius: 4, color: '#FF8888',
+                            cursor: 'pointer', fontFamily: 'inherit',
+                          }}
+                        >
+                          × Limpiar escena
+                        </button>
+                      </div>
+
+                      {/* Export */}
+                      <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+                        <button
+                          onClick={() => copy(exportPlaybackScene(), 'pb-scene')}
+                          style={{
+                            flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700,
+                            background: 'rgba(93,213,240,0.18)', border: '1px solid rgba(93,213,240,0.5)',
+                            borderRadius: 4, color: '#5DD5F0', cursor: 'pointer', fontFamily: 'inherit',
+                          }}
+                        >
+                          {copied === 'pb-scene' ? '✓ copiado' : 'Copiar esta escena'}
+                        </button>
+                        <button
+                          onClick={() => copy(exportPlaybackAll(), 'pb-all')}
+                          title="Exporta las animaciones de todas las escenas capturadas"
+                          style={{
+                            flex: 1, padding: '6px 8px', fontSize: 10, fontWeight: 700,
+                            background: 'rgba(93,213,240,0.1)', border: '1px solid rgba(93,213,240,0.35)',
+                            borderRadius: 4, color: '#5DD5F0', cursor: 'pointer', fontFamily: 'inherit',
+                          }}
+                        >
+                          {copied === 'pb-all' ? '✓ copiado' : 'Copiar TODAS'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ opacity: 0.55, fontSize: 11, padding: 8, textAlign: 'center' }}>
+                      Sin tramos aún. Usa <b style={{ color: '#5DD5F0' }}>⚡ Generar desde salidas</b> o
+                      captura con ① / ②.
+                    </div>
+                  )}
                 </>
               )}
 
