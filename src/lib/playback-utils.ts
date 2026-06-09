@@ -9,7 +9,7 @@ export const TRANSITION_SPEED = 32;
 export const STATIC_HOLD_MS = 3800;
 /** Límites de duración del pan principal en ms. */
 const PAN_MIN_MS = 3200;
-const PAN_MAX_MS = 11000;
+const PAN_MAX_MS = 14000;
 /** Límites de duración de la transición en ms. */
 const TRANS_MIN_MS = 700;
 const TRANS_MAX_MS = 2600;

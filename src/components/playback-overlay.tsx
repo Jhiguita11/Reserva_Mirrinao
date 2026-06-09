@@ -16,13 +16,16 @@ export default function PlaybackOverlay() {
   const currentSceneId    = useTourStore((s) => s.currentSceneId);
   const currentSceneIndex = useTourStore((s) => s.currentSceneIndex);
   const selectedApartment = useTourStore((s) => s.selectedApartment);
+  const playbackSettings  = useTourStore((s) => s.config.playback);
 
   const scenes = selectedApartment?.scenes ?? [];
   const currentScene = scenes.find((s) => s.id === currentSceneId);
   const total = scenes.length;
 
-  // Duración real de la escena actual — sincroniza la barra con el avance
-  const sceneDurationMs = sceneTotalMs(currentScene?.playbackAnimations ?? []) + PLAYBACK_LEAD_IN;
+  // Duración real de la escena actual — sincroniza la barra con el avance.
+  // Debe usar los mismos ajustes (playbackSettings) que el motor de cámara
+  // y el timer de use-playback, o la barra se desalinea con la animación.
+  const sceneDurationMs = sceneTotalMs(currentScene?.playbackAnimations ?? [], playbackSettings) + PLAYBACK_LEAD_IN;
 
   // Animación de entrada — se muestra al montar (al activar el modo reproducción)
   const [showIntro, setShowIntro] = useState(true);

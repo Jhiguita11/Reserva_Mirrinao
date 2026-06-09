@@ -105,6 +105,12 @@ const mirrinao: TourConfig = {
                 { id: 'cg-acc-to-comedor', pitch: -2.9, yaw: -72.1,  type: 'scene', label: 'Comedor',        description: 'Ir al comedor',   targetSceneId: 'cg-comedor' },
                 { id: 'cg-acc-to-patio',   pitch: -0.3, yaw: -90.9,  type: 'scene', label: 'Patio Exterior', description: 'Salir al patio',  targetSceneId: 'cg-patio-exterior' },
               ],
+              // Entra mirando hacia el interior y barre revelando sala/comedor/patio;
+              // asienta centrado en la abertura social.
+              playbackAnimations: [
+                { from: { pitch: -1, yaw: -25 },    to: { pitch: -2.5, yaw: -110 } },
+                { from: { pitch: -2.5, yaw: -110 }, to: { pitch: -1.5, yaw: -85 } },
+              ],
             },
 
             // --- ESCENA: SALA --- (hub social + escalera al 2º piso)
@@ -126,6 +132,12 @@ const mirrinao: TourConfig = {
                 // Posición estimada (hacia la abertura del comedor); calibrar en ?debug=1.
                 { id: 'cg-sala-to-cocina-gris', pitch: -0.5, yaw: 65.7, type: 'scene', label: 'Cocina y Patio', description: 'Ir a la cocina', targetSceneId: 'cg-cocina-patio', onlyInVariant: 'obra-gris' },
               ],
+              // Hub social: gran barrido patio → comedor → acceso → escalera,
+              // con arco de pitch, y asentamiento hacia la abertura del comedor.
+              playbackAnimations: [
+                { from: { pitch: -0.5, yaw: -95 }, to: { pitch: -2.5, yaw: 95 } },
+                { from: { pitch: -2.5, yaw: 95 },  to: { pitch: -1, yaw: 35 } },
+              ],
             },
 
             // --- ESCENA: COMEDOR ---
@@ -140,6 +152,12 @@ const mirrinao: TourConfig = {
                 { id: 'cg-com-to-2piso',  pitch: 0.6,  yaw: 121.8, type: 'scene', label: 'Segundo Piso',   description: 'Subir al segundo piso', targetSceneId: 'cg-bano-social' },
                 { id: 'cg-com-to-sala',   pitch: -1.6, yaw: 162.6, type: 'scene', label: 'Sala',           description: 'Volver a la sala',     targetSceneId: 'cg-sala' },
                 { id: 'cg-com-to-acceso', pitch: -0.9, yaw: 102.2, type: 'scene', label: 'Acceso',         description: 'Ir al acceso',         targetSceneId: 'cg-acceso' },
+              ],
+              // Barrido cocina → escalera → acceso → sala, con arco de pitch,
+              // asentando en la esquina acceso/sala.
+              playbackAnimations: [
+                { from: { pitch: -0.5, yaw: 40 }, to: { pitch: -2, yaw: 175 } },
+                { from: { pitch: -2, yaw: 175 },  to: { pitch: -1, yaw: 120 } },
               ],
             },
 
@@ -158,6 +176,10 @@ const mirrinao: TourConfig = {
                 // Posición estimada; calibrar en ?debug=1.
                 { id: 'cg-coc-to-sala-gris', pitch: -1.2, yaw: -86.6, type: 'scene', label: 'Sala', description: 'Volver a la sala', targetSceneId: 'cg-sala', onlyInVariant: 'obra-gris' },
               ],
+              // Barrido del mesón hacia el patio de ropas (calibrado en ?debug=1).
+              playbackAnimations: [
+                { from: { pitch: -3.6, yaw: 35.2 }, to: { pitch: -6.4, yaw: -105.5 } },
+              ],
             },
 
             // --- ESCENA: PATIO EXTERIOR ---
@@ -171,6 +193,12 @@ const mirrinao: TourConfig = {
               variantButton: { pitch: -1.3, yaw: 33 },
               hotspots: [
                 { id: 'cg-patio-to-sala', pitch: -2.2, yaw: 110.4, type: 'scene', label: 'Sala', description: 'Volver a la sala', targetSceneId: 'cg-sala' },
+              ],
+              // Panorámica amplia del patio exterior, con arco de pitch,
+              // asentando hacia la zona de asador.
+              playbackAnimations: [
+                { from: { pitch: -1, yaw: -90 },   to: { pitch: -2.5, yaw: 120 } },
+                { from: { pitch: -2.5, yaw: 120 }, to: { pitch: -1, yaw: 60 } },
               ],
             },
 
@@ -191,6 +219,12 @@ const mirrinao: TourConfig = {
                 { id: 'cg-alc-ppal-to-aux2', pitch: -2.4, yaw: -78.5, type: 'scene', label: 'Alcoba Auxiliar 2', description: 'Ir a la alcoba auxiliar 2', targetSceneId: 'cg-alcoba-auxiliar-2' },
                 { id: 'cg-alc-ppal-to-aux1', pitch: -2.2, yaw: -95.7, type: 'scene', label: 'Alcoba Auxiliar 1', description: 'Ir a la alcoba auxiliar 1', targetSceneId: 'cg-alcoba-auxiliar-1' },
               ],
+              // Hub privado: barrido del hall mostrando baños y alcobas, con arco
+              // de pitch, asentando hacia la cama.
+              playbackAnimations: [
+                { from: { pitch: -0.5, yaw: -115 }, to: { pitch: -2.5, yaw: 95 } },
+                { from: { pitch: -2.5, yaw: 95 },   to: { pitch: -1, yaw: 40 } },
+              ],
             },
 
             // --- ESCENA: BAÑO PRINCIPAL (suite) ---
@@ -202,6 +236,12 @@ const mirrinao: TourConfig = {
               defaultView: { pitch: 0, yaw: 0, hfov: 100 },
               hotspots: [
                 { id: 'cg-bano-ppal-to-alc', pitch: -3, yaw: 170, type: 'scene', label: 'Alcoba Principal', description: 'Volver a la alcoba', targetSceneId: 'cg-alcoba-principal' },
+              ],
+              // Barrido del baño suite (pitch más bajo para mostrar piezas),
+              // asentando hacia la salida a la alcoba.
+              playbackAnimations: [
+                { from: { pitch: -1, yaw: -50 }, to: { pitch: -3, yaw: 130 } },
+                { from: { pitch: -3, yaw: 130 }, to: { pitch: -2, yaw: 168 } },
               ],
             },
 
@@ -216,6 +256,11 @@ const mirrinao: TourConfig = {
                 { id: 'cg-aux1-to-ppal', pitch: -1.1, yaw: 77.8, type: 'scene', label: 'Alcoba Principal', description: 'Ir a la alcoba principal', targetSceneId: 'cg-alcoba-principal' },
                 { id: 'cg-aux1-to-bsoc', pitch: -1.7, yaw: 57.5, type: 'scene', label: 'Baño Social',      description: 'Ir al baño social',        targetSceneId: 'cg-bano-social' },
               ],
+              // Barrido de la alcoba auxiliar, con arco de pitch, asentando hacia la cama.
+              playbackAnimations: [
+                { from: { pitch: -0.5, yaw: -80 }, to: { pitch: -2.5, yaw: 95 } },
+                { from: { pitch: -2.5, yaw: 95 },  to: { pitch: -1, yaw: 35 } },
+              ],
             },
 
             // --- ESCENA: ALCOBA AUXILIAR 2 ---
@@ -228,6 +273,11 @@ const mirrinao: TourConfig = {
               hotspots: [
                 { id: 'cg-aux2-to-bsoc', pitch: -0.7, yaw: 62.7, type: 'scene', label: 'Baño Social',      description: 'Ir al baño social',        targetSceneId: 'cg-bano-social' },
                 { id: 'cg-aux2-to-ppal', pitch: -0.4, yaw: 84.4, type: 'scene', label: 'Alcoba Principal', description: 'Ir a la alcoba principal', targetSceneId: 'cg-alcoba-principal' },
+              ],
+              // Barrido de la alcoba auxiliar, con arco de pitch, asentando hacia la cama.
+              playbackAnimations: [
+                { from: { pitch: -0.5, yaw: -80 }, to: { pitch: -2.5, yaw: 100 } },
+                { from: { pitch: -2.5, yaw: 100 }, to: { pitch: -1, yaw: 40 } },
               ],
             },
 
@@ -245,6 +295,12 @@ const mirrinao: TourConfig = {
                 { id: 'cg-bsoc-to-aux2',  pitch: -2.2,  yaw: -115.2, type: 'scene', label: 'Alcoba Auxiliar 2', description: 'Ir a la alcoba auxiliar 2', targetSceneId: 'cg-alcoba-auxiliar-2' },
                 { id: 'cg-bsoc-to-aux1',  pitch: -2.7,  yaw: -157.9, type: 'scene', label: 'Alcoba Auxiliar 1', description: 'Ir a la alcoba auxiliar 1', targetSceneId: 'cg-alcoba-auxiliar-1' },
                 { id: 'cg-bsoc-to-1piso', pitch: -21.6, yaw: 141.1,  type: 'scene', label: 'Primer Piso',       description: 'Bajar al primer piso',     targetSceneId: 'cg-sala' },
+              ],
+              // Hub del 2º piso: barrido del hall de alcobas (giro más contenido,
+              // con arco de pitch), asentando en la puerta de la alcoba principal.
+              playbackAnimations: [
+                { from: { pitch: -1, yaw: -160 }, to: { pitch: -2.5, yaw: 80 } },
+                { from: { pitch: -2.5, yaw: 80 }, to: { pitch: -1, yaw: 117 } },
               ],
             },
 
@@ -287,6 +343,15 @@ const mirrinao: TourConfig = {
       ],
     },
   ],
+
+  // ─── Modo reproducción (auto-tour) ─────────────────────────────────────
+  // Velocidades y HFOV del recorrido automático. Calibrables en ?debug=1.
+  playback: {
+    panSpeed: 7,          // °/s — paneo principal contemplativo
+    transitionSpeed: 32,  // °/s — transición ágil entre tramos
+    staticHoldMs: 3800,   // ms — duración de una toma fija
+    hfov: 130,            // campo de visión amplio en reproducción
+  },
 
   autoRotateSpeed: -0.5,
   showFloorPlan: true,
