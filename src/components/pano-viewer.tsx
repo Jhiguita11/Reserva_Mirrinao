@@ -431,6 +431,12 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
     const autoRotate = useTourStore((s) => s.autoRotate);
     const autoRotateSpeed = useTourStore((s) => s.config.autoRotateSpeed);
     const isPlaybackMode = useTourStore((s) => s.isPlaybackMode);
+    const playbackAuto = useTourStore((s) => s.playbackAuto);
+    // La cámara solo se bloquea al usuario en reproducción MANUAL (botón ▶):
+    // ahí no se puede mover hasta pulsar "Salir". En reproducción por inactividad
+    // (screensaver) cualquier interacción la cancela (ver use-inactivity-playback),
+    // así que NO se bloquea para que el toque la mueva/cierre de inmediato.
+    const cameraLocked = isPlaybackMode && !playbackAuto;
     const playbackSettings = useTourStore((s) => s.config.playback);
     const pbHfov = playbackSettings?.hfov ?? PLAYBACK_HFOV;
     const setTransitioning = useTourStore((s) => s.setTransitioning);
@@ -1011,8 +1017,10 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
             position: 'absolute',
             inset: 0,
             opacity: layerAOpacity,
-            // El layer activo recibe los eventos; el inactivo no debe robar el cursor
-            pointerEvents: activeLayer === 'A' ? 'auto' : 'none',
+            // El layer activo recibe los eventos; el inactivo no debe robar el cursor.
+            // En reproducción MANUAL la cámara queda bloqueada al arrastre/zoom del
+            // usuario (solo la controla la animación) hasta que se pulsa "Salir".
+            pointerEvents: activeLayer === 'A' && !cameraLocked ? 'auto' : 'none',
             transition: 'opacity 360ms cubic-bezier(0.4, 0, 0.2, 1)',
             zIndex: activeLayer === 'A' ? 2 : 1,
           }}
@@ -1031,7 +1039,7 @@ const PanoViewer = forwardRef<PanoViewerHandle, PanoViewerProps>(
             position: 'absolute',
             inset: 0,
             opacity: layerBOpacity,
-            pointerEvents: activeLayer === 'B' ? 'auto' : 'none',
+            pointerEvents: activeLayer === 'B' && !cameraLocked ? 'auto' : 'none',
             transition: 'opacity 360ms cubic-bezier(0.4, 0, 0.2, 1)',
             zIndex: activeLayer === 'B' ? 2 : 1,
           }}
