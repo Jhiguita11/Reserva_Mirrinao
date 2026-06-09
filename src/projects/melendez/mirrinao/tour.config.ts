@@ -350,7 +350,7 @@ const mirrinao: TourConfig = {
     panSpeed: 7,          // °/s — paneo principal contemplativo
     transitionSpeed: 32,  // °/s — transición ágil entre tramos
     staticHoldMs: 3800,   // ms — duración de una toma fija
-    hfov: 130,            // campo de visión amplio en reproducción
+    hfov: 135,            // campo de visión amplio en reproducción
   },
 
   autoRotateSpeed: -0.5,
