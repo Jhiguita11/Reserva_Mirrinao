@@ -358,8 +358,13 @@ const mirrinao: TourConfig = {
   showWelcome: true,
 
   // ─── Galería de renders ─────────────────────────────────────────────────
-  // 5 renders de cámara fija (03_Galeria), optimizados a 2000px.
+  // Renders de cámara fija (03_Galeria), optimizados a 2000px.
+  // Orden: exteriores (fachada/conjunto) → interiores.
   gallery: [
+    { id: 'fotomontaje-dia',   src: assetPath('/projects/melendez/mirrinao/images/renders/fotomontaje-dia.jpg'),   title: 'Fachada de Día',   caption: 'Fotomontaje del conjunto en el día' },
+    { id: 'fotomontaje-noche', src: assetPath('/projects/melendez/mirrinao/images/renders/fotomontaje-noche.jpg'), title: 'Fachada de Noche', caption: 'Fotomontaje del conjunto en la noche' },
+    { id: 'nivel-observador',  src: assetPath('/projects/melendez/mirrinao/images/renders/nivel-observador.jpg'),  title: 'Vista Peatonal',   caption: 'Render a nivel de observador' },
+    { id: 'home',              src: assetPath('/projects/melendez/mirrinao/images/renders/home.jpg'),              title: 'Conjunto',         caption: 'Vista general del proyecto' },
     { id: 'sala-comedor', src: assetPath('/projects/melendez/mirrinao/images/renders/sala-comedor.jpg'),     title: 'Sala Comedor',     caption: 'Zona social en planta abierta' },
     { id: 'cocina',       src: assetPath('/projects/melendez/mirrinao/images/renders/cocina.jpg'),           title: 'Cocina',           caption: 'Cocina integral con patio de ropas' },
     { id: 'alcoba-ppal',  src: assetPath('/projects/melendez/mirrinao/images/renders/alcoba-principal.jpg'), title: 'Alcoba Principal', caption: 'Alcoba principal con baño privado' },
