@@ -57,7 +57,7 @@ const theme = {
 // Variante "Obra gris" reutilizable: la escena muestra el render amueblado
 // por defecto y permite alternar al render en obra gris del mismo cuarto.
 const obraGrisVariants = (file: string) => [
-  { id: 'amueblado', label: 'Amueblado', panorama: PANO(file) },
+  { id: 'amueblado', label: 'Obra blanca', panorama: PANO(file) },
   { id: 'obra-gris', label: 'Obra gris', panorama: GRIS(file) },
 ];
 
