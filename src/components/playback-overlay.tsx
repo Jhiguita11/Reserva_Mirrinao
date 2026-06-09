@@ -83,12 +83,21 @@ export default function PlaybackOverlay() {
         </div>
       )}
 
-      {/* Gradiente inferior — fondo para el título */}
+      {/* Gradiente superior — fondo para el título */}
+      <div
+        className="absolute top-0 left-0 right-0"
+        style={{
+          height: '42%',
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.40) 55%, transparent 100%)',
+        }}
+      />
+
+      {/* Gradiente inferior — fondo para la barra de progreso y los controles */}
       <div
         className="absolute bottom-0 left-0 right-0"
         style={{
-          height: '55%',
-          background: 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.45) 55%, transparent 100%)',
+          height: '28%',
+          background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 100%)',
         }}
       />
 
@@ -112,13 +121,13 @@ export default function PlaybackOverlay() {
         <span className="hidden sm:inline">Salir</span>
       </button>
 
-      {/* Bloque central — título de la escena */}
+      {/* Bloque superior — título de la escena */}
       <div
         key={currentSceneId}
         className="absolute left-0 right-0 flex flex-col items-center justify-center gap-3 px-8"
         style={{
-          bottom: 80,
-          animation: 'playback-fade-up 0.7s cubic-bezier(0.22,1,0.36,1) both',
+          top: 72,
+          animation: 'playback-fade-down 0.7s cubic-bezier(0.22,1,0.36,1) both',
         }}
       >
         {/* Contador de escenas */}
@@ -223,6 +232,10 @@ export default function PlaybackOverlay() {
       <style>{`
         @keyframes playback-fade-up {
           from { opacity: 0; transform: translateY(18px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes playback-fade-down {
+          from { opacity: 0; transform: translateY(-18px); }
           to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes playback-progress {
