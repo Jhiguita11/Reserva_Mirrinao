@@ -42,6 +42,19 @@ export default function MediaGallery() {
     setIndex((i) => (i - 1 + total) % total);
   }, [total]);
 
+  // Precarga las imágenes vecinas (siguiente y anterior) en segundo plano para
+  // que la transición sea instantánea: cuando el usuario navega, ya están en caché.
+  useEffect(() => {
+    if (!galleryOpen || total < 2) return;
+    [(index + 1) % total, (index - 1 + total) % total].forEach((i) => {
+      const src = items[i]?.src;
+      if (src) {
+        const img = new Image();
+        img.src = src;
+      }
+    });
+  }, [galleryOpen, index, total]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Teclado: flechas + Escape
   useEffect(() => {
     if (!galleryOpen) return;
@@ -69,7 +82,6 @@ export default function MediaGallery() {
         }
         .mg-backdrop { animation: mg-fade-in 0.32s ease both; }
         .mg-stage    { animation: mg-scale-in 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
-        .mg-img-fade { animation: mg-fade-in 0.5s ease both; }
       `}</style>
 
       <div
@@ -214,8 +226,13 @@ export default function MediaGallery() {
                   <img
                     key={current.id}
                     src={current.src}
-                    alt={current.title ?? ''}
-                    className="mg-img-fade rounded-lg select-none"
+                    // alt vacío a propósito: el navegador pinta el texto alt en el
+                    // centro como placeholder mientras la imagen carga (las "letras"
+                    // que se asomaban al cambiar). El título ya se muestra en el caption.
+                    alt=""
+                    // Sin animación de aparición: la opacidad la controla SOLO el
+                    // gate imgLoaded (abajo), para que el <img> quede invisible hasta cargar.
+                    className="rounded-lg select-none"
                     onLoad={() => setImgLoaded(true)}
                     draggable={false}
                     style={{
