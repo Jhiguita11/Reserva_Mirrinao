@@ -4,7 +4,9 @@ import { useTourStore } from '@/lib/tour-store';
 import BrandLogo from '@/components/brand-logo';
 
 export default function BrandBadge() {
-  const { config, selectedApartment } = useTourStore();
+  const { config, selectedApartment, currentSceneId } = useTourStore();
+
+  const currentFloor = selectedApartment?.scenes.find(s => s.id === currentSceneId)?.floor;
 
   return (
     <div
@@ -16,13 +18,31 @@ export default function BrandBadge() {
     >
       <BrandLogo variant="horizontal" className="h-[44px] md:h-[56px]" />
       <div className="w-px self-stretch" style={{ background: 'rgba(142, 104, 73,0.2)' }} />
-      <div>
-        <p className="text-xs font-bold tracking-wide max-w-[120px] sm:max-w-none truncate" style={{ color: '#FFF9E9' }}>
-          {selectedApartment ? selectedApartment.name : config.brand.name}
-        </p>
-        <p className="hidden sm:block text-[10px] text-white/30">
-          {selectedApartment ? config.brand.tagline : 'Recorrido Virtual'}
-        </p>
+      <div className="leading-tight">
+        {selectedApartment ? (
+          <>
+            {currentFloor != null && (
+              <p className="text-[13px] font-bold tracking-wide whitespace-nowrap" style={{ color: '#FFF9E9' }}>
+                PISO {currentFloor}
+              </p>
+            )}
+            <p className="text-[10px] font-semibold tracking-wide whitespace-nowrap" style={{ color: 'rgba(255,249,233,0.6)' }}>
+              Área construida {selectedApartment.area} m²
+            </p>
+            {selectedApartment.privateArea != null && (
+              <p className="text-[10px] font-semibold tracking-wide whitespace-nowrap" style={{ color: 'rgba(255,249,233,0.6)' }}>
+                Área privada {selectedApartment.privateArea} m²
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="text-xs font-bold tracking-wide max-w-[120px] sm:max-w-none truncate" style={{ color: '#FFF9E9' }}>
+              {config.brand.name}
+            </p>
+            <p className="hidden sm:block text-[10px] text-white/30">Recorrido Virtual</p>
+          </>
+        )}
       </div>
     </div>
   );

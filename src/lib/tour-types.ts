@@ -61,6 +61,8 @@ export interface PlaybackAnimation {
 export interface SceneConfig {
   id: string;
   name: string;
+  /** Piso al que pertenece la escena (1, 2, …). Opcional. */
+  floor?: number;
   panorama: string;
   description: string;
   thumbnail?: string;
@@ -143,8 +145,10 @@ export interface ApartmentConfig {
   bedrooms: number;
   /** Number of bathrooms */
   bathrooms: number;
-  /** Area in m² */
+  /** Area in m² (área construida) */
   area: number;
+  /** Área privada en m² (opcional, si difiere del área construida) */
+  privateArea?: number;
   /** Optional hotspot position override (% of building image) */
   hotspotX?: number;
   hotspotY?: number;

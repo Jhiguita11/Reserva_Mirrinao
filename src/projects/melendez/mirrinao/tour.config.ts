@@ -75,14 +75,15 @@ const mirrinao: TourConfig = {
       apartments: [
         {
           id: 'cg-casa-grande',
-          name: 'Casa Grande',
-          description: 'Casa de 2 pisos · 3 Alcobas · 2 Baños · Patio',
+          name: 'Casa de 89 m²',
+          description: '67 m² de área privada · 2 pisos · 3 Alcobas · 2 Baños',
           floor: 0,
           position: 0,
           bedrooms: 3,
           bathrooms: 2,
-          // ACTUALIZAR: confirmar área real (plano indica 89 m² const. / 67 m² priv.)
+          // Área según plano: 89 m² construida / 67 m² privada
           area: 89,
+          privateArea: 67,
           available: true,
           // Posición del hotspot sobre el render exterior (public/building.png),
           // alineada con la burbuja "Casa Medianera" del entregable (06_ImagenInicio).
@@ -97,6 +98,7 @@ const mirrinao: TourConfig = {
             {
               id: 'cg-acceso',
               name: 'Acceso',
+              floor: 1,
               description: 'Hall de entrada',
               panorama: PANO('acceso.jpg'),
               defaultView: { pitch: 0, yaw: 0, hfov: 100 },
@@ -117,6 +119,7 @@ const mirrinao: TourConfig = {
             {
               id: 'cg-sala',
               name: 'Sala',
+              floor: 1,
               description: 'Sala de estar',
               panorama: PANO('sala.jpg'),
               defaultView: { pitch: 0, yaw: 0, hfov: 100 },
@@ -144,6 +147,7 @@ const mirrinao: TourConfig = {
             {
               id: 'cg-comedor',
               name: 'Comedor',
+              floor: 1,
               description: 'Comedor',
               panorama: PANO('comedor.jpg'),
               defaultView: { pitch: 0, yaw: 0, hfov: 100 },
@@ -165,6 +169,7 @@ const mirrinao: TourConfig = {
             {
               id: 'cg-cocina-patio',
               name: 'Cocina y Patio',
+              floor: 1,
               description: 'Cocina integral con patio de ropas',
               panorama: PANO('cocina-patio.jpg'),
               defaultView: { pitch: 0, yaw: 0, hfov: 100 },
@@ -186,6 +191,7 @@ const mirrinao: TourConfig = {
             {
               id: 'cg-patio-exterior',
               name: 'Patio Exterior',
+              floor: 1,
               description: 'Patio con zona de asador',
               panorama: PANO('patio-exterior.jpg'),
               defaultView: { pitch: 0, yaw: 0, hfov: 100 },
@@ -208,6 +214,7 @@ const mirrinao: TourConfig = {
             {
               id: 'cg-alcoba-principal',
               name: 'Alcoba Principal',
+              floor: 2,
               description: 'Alcoba principal con baño privado',
               panorama: PANO('alcoba-principal.jpg'),
               defaultView: { pitch: 0, yaw: 0, hfov: 100 },
@@ -231,6 +238,7 @@ const mirrinao: TourConfig = {
             {
               id: 'cg-bano-principal',
               name: 'Baño Principal',
+              floor: 2,
               description: 'Baño privado de la alcoba principal',
               panorama: PANO('bano-principal.jpg'),
               defaultView: { pitch: 0, yaw: 0, hfov: 100 },
@@ -249,6 +257,7 @@ const mirrinao: TourConfig = {
             {
               id: 'cg-alcoba-auxiliar-1',
               name: 'Alcoba Auxiliar 1',
+              floor: 2,
               description: 'Segunda alcoba',
               panorama: PANO('alcoba-auxiliar-1.jpg'),
               defaultView: { pitch: 0, yaw: 0, hfov: 100 },
@@ -267,6 +276,7 @@ const mirrinao: TourConfig = {
             {
               id: 'cg-alcoba-auxiliar-2',
               name: 'Alcoba Auxiliar 2',
+              floor: 2,
               description: 'Tercera alcoba',
               panorama: PANO('alcoba-auxiliar-2.jpg'),
               defaultView: { pitch: 0, yaw: 0, hfov: 100 },
@@ -285,6 +295,7 @@ const mirrinao: TourConfig = {
             {
               id: 'cg-bano-social',
               name: 'Baño Social',
+              floor: 2,
               description: 'Baño del hall de alcobas',
               panorama: PANO('bano-social.jpg'),
               defaultView: { pitch: 0, yaw: 0, hfov: 100 },
@@ -311,8 +322,8 @@ const mirrinao: TourConfig = {
           // dotX/dotY en % sobre la imagen, posicionados sobre las burbujas impresas.
           // Afinar arrastrando en el floor plan con ?debug=1.
           floorPlan: {
-            width: 2100,
-            height: 1460,
+            width: 3428,
+            height: 2400,
             background: 'transparent',
             backgroundImage: PLAN('planta-casa-grande.jpg'),
             rooms: [
@@ -375,7 +386,8 @@ const mirrinao: TourConfig = {
 
   // ─── Plantas arquitectónicas ────────────────────────────────────────────
   plantas: [
-    { id: 'plantas-pisos', src: assetPath('/projects/melendez/mirrinao/floor-plans/plantas-pisos.jpg'), title: 'Plantas — Primer y Segundo Piso', caption: 'Área construida 89 m² · Área privada 67 m²' },
+    { id: 'planta-piso-1', src: assetPath('/projects/melendez/mirrinao/floor-plans/plantas-piso-1.jpg'), title: 'Primer Piso',  caption: 'Área construida 89 m² · Área privada 67 m²' },
+    { id: 'planta-piso-2', src: assetPath('/projects/melendez/mirrinao/floor-plans/plantas-piso-2.jpg'), title: 'Segundo Piso', caption: 'Área construida 89 m² · Área privada 67 m²' },
   ],
 };
 

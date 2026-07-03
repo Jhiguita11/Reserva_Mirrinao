@@ -114,8 +114,8 @@ const HOTSPOT_CSS = `
 
 /* ── Icon circle ─────────────────────────────────────────────── */
 .pano-bubble-circle {
-  width: 68px;
-  height: 68px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   background: rgba(10, 10, 10, 0.68);
   backdrop-filter: blur(12px);
@@ -220,8 +220,8 @@ const HOTSPOT_CSS = `
    pantallas pequenas reducimos el blur y lo quitamos del pill. */
 @media (max-width: 768px) {
   .pano-bubble-circle {
-    width: 58px;
-    height: 58px;
+    width: 46px;
+    height: 46px;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
   }
@@ -318,7 +318,7 @@ function buildHotspotDiv(hs: HotspotConfig): HTMLDivElement {
   // Icon (bigger: 26px)
   const iconWrapper = document.createElement('div');
   iconWrapper.style.cssText = 'position:relative;z-index:1;display:flex;align-items:center;justify-content:center;';
-  iconWrapper.innerHTML = roomIcon(hs.label ?? '', hs.type).replace(/width="20" height="20"/, 'width="26" height="26"');
+  iconWrapper.innerHTML = roomIcon(hs.label ?? '', hs.type).replace(/width="20" height="20"/, 'width="22" height="22"');
   circle.appendChild(iconWrapper);
 
   wrapper.appendChild(circle);
@@ -353,11 +353,11 @@ function buildVariantHotspotDiv(nextVariantLabel: string): HTMLDivElement {
   rings.className = 'pano-bubble-rings';
   circle.appendChild(rings);
 
-  // Icono de capas (Layers) en SVG, 26x26
+  // Icono de capas (Layers) en SVG, 22x22
   const iconWrap = document.createElement('div');
   iconWrap.style.cssText = 'position:relative;z-index:1;display:flex;align-items:center;justify-content:center;color:#FFF9E9;';
   iconWrap.innerHTML = `
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 2 2 7l10 5 10-5-10-5z" />
       <path d="m2 17 10 5 10-5" />

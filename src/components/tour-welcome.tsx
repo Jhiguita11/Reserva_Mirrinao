@@ -1,6 +1,5 @@
 'use client';
 
-import { Eye } from 'lucide-react';
 import { useTourStore } from '@/lib/tour-store';
 import BrandLogo from '@/components/brand-logo';
 
@@ -29,7 +28,7 @@ export default function TourWelcome({ onStart }: Props) {
         style={{ animation: 'welcome-scale-in 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
       >
         <h1
-          className="font-serif text-4xl font-bold tracking-tight mb-2"
+          className="font-serif text-5xl md:text-6xl font-bold tracking-tight mb-2"
           style={{ color: '#FFF9E9', animation: 'welcome-fade-up 0.6s ease 0.3s both' }}
         >
           {selectedApartment?.name ?? ''}
@@ -42,10 +41,9 @@ export default function TourWelcome({ onStart }: Props) {
         </p>
         <button
           onClick={e => { e.stopPropagation(); onStart(); }}
-          className="group relative px-14 py-5 rounded-2xl text-xl font-semibold transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center gap-3.5 cursor-pointer"
+          className="group relative px-8 py-3 rounded-xl text-base font-semibold transition-all duration-300 hover:scale-105 active:scale-95 inline-flex items-center cursor-pointer"
           style={{ background: '#8E6849', color: '#FFF9E9', animation: 'welcome-fade-up 0.6s ease 0.5s both', boxShadow: '0 8px 30px rgba(142, 104, 73,0.45)' }}
         >
-          <Eye size={26} />
           Iniciar Recorrido 360°
         </button>
         <p
